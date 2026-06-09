@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "StayOn",
+    "slug": "stayon",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyD-xBIuVKRb8K1AI0EjP8mq-vTQkwHyqKA"
+        }
+      }
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "StayOn uses your location to show nearby stays and personalize recommendations."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyD-xBIuVKRb8K1AI0EjP8mq-vTQkwHyqKA"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "config": {
+        "googleMapsApiKey": "AIzaSyD-xBIuVKRb8K1AI0EjP8mq-vTQkwHyqKA"
+      }
+    },
+    "plugins": [
+      "expo-image",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "StayOn uses your location to show nearby stays and personalize recommendations."
+        }
+      ]
+    ]
+  }
+}

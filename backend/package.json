@@ -1,0 +1,18 @@
+{
+  "name": "stayon-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "StayOn central service — the in-between that connects the User app, Host app and Ops portal",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "dev": "node --env-file-if-exists=.env --watch src/index.js",
+    "test:full": "node --env-file-if-exists=.env fulltest.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.107.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

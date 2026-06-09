@@ -1,0 +1,38 @@
+# ── Secrets (NEVER commit) ───────────────────────────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.keystore
+
+# ── Dependencies ─────────────────────────────────────────────────────────
+**/node_modules/
+
+# ── Expo / build artifacts ───────────────────────────────────────────────
+**/.expo/
+**/dist/
+**/web-build/
+**/expo-env.d.ts
+**/.kotlin/
+**/android/
+**/ios/
+
+# ── Backend local store ──────────────────────────────────────────────────
+backend/data/db.json
+
+# ── Logs / temp ──────────────────────────────────────────────────────────
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# ── OS / editor ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

@@ -1,0 +1,29 @@
+# Render Blueprint — deploys the StayOn backend as a public web service.
+# In Render: New → Blueprint → connect this repo. It reads this file.
+# Then add the 3 secret env vars (SUPABASE_*) in the dashboard.
+services:
+  - type: web
+    name: stayon-backend
+    runtime: node
+    plan: free
+    region: singapore            # closest Render region to India
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: SUPABASE_URL
+        sync: false              # paste in Render dashboard
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false              # secret
+      - key: JWT_SECRET
+        generateValue: true      # Render generates a strong secret once
+      - key: GEMINI_API_KEY
+        sync: false              # AI photo classification (free — Google AI Studio)
+      - key: ANTHROPIC_API_KEY
+        sync: false              # alt AI provider (optional)
+      - key: SUPABASE_BUCKET_LISTINGS
+        value: listings
+      - key: SUPABASE_BUCKET_REELS
+        value: reels
