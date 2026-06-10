@@ -46,6 +46,7 @@ export const Api = {
   },
   search: (params: Record<string, string | number> = {}) =>
     http.get('/search?' + new URLSearchParams(params as any).toString()),
+  featureFlags: () => http.get('/feature-flags'),
   bookings: {
     create: (data: any) => http.post('/bookings', data),
     mine: () => http.get('/bookings'),
@@ -67,6 +68,7 @@ export const Api = {
   },
   reviews: {
     create: (data: any) => http.post('/reviews', data),
+    forHost: () => http.get('/reviews'),
     respond: (id: string, response: string) => http.post(`/reviews/${id}/respond`, { response }),
     reviewGuest: (bookingCode: string, rating: number, text: string) => http.post('/guest-reviews', { bookingCode, rating, text }),
   },
@@ -96,8 +98,10 @@ export const Api = {
   earnings: () => http.get('/earnings'),
   payouts: () => http.get('/payouts'),
   payoutChange: (data: any) => http.post('/payout-method/change-request', data),
+  payoutConnect: () => http.post('/payout-account/connect'),
   notifications: () => http.get('/notifications'),
   markNotificationsRead: () => http.post('/notifications/read'),
+  push: { register: (token: string) => http.post('/push/register', { token }) },
 };
 
 export { ApiError, API_BASE } from './client';

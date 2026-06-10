@@ -33,6 +33,7 @@ export function IdentityVerificationScreen({ navigation }: any) {
   const [idNumber, setIdNumber] = useState('');
   const [docFront, setDocFront] = useState<string | null>(null);
   const [docBack, setDocBack] = useState<string | null>(null);
+  const [selfie, setSelfie] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useFocusEffect(
@@ -49,12 +50,33 @@ export function IdentityVerificationScreen({ navigation }: any) {
     }, [])
   );
 
-  const pickDoc = async (which: 'front' | 'back') => {
+  const pickDoc = async (which: 'front' | 'back' | 'selfie') => {
     light();
+    // Selfie → camera (front-facing); ID docs → gallery.
+    if (which === 'selfie') {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) { Alert.alert('Camera needed', 'Allow camera access to take a verification selfie.'); return; }
+      const res = await ImagePicker.launchCameraAsync({ cameraType: ImagePicker.CameraType.front, quality: 0.85 });
+      if (!res.canceled) setSelfie(res.assets[0].uri);
+      return;
+    }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) return;
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85 });
     if (!res.canceled) (which === 'front' ? setDocFront : setDocBack)(res.assets[0].uri);
+  };
+
+  // Upload a local image to Supabase Storage → permanent URL (for the Ops review card).
+  const uploadOne = async (uri: string | null): Promise<string | null> => {
+    if (!uri) return null;
+    if (/^https?:/.test(uri)) return uri;
+    try {
+      const r = await fetch(uri); const blob = await r.blob();
+      const b64: string = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1] || ''); fr.onerror = () => res(''); fr.readAsDataURL(blob); });
+      if (!b64) return null;
+      const up = await Api.media.upload(b64, 'image/jpeg');
+      return up?.url || null;
+    } catch { return null; }
   };
 
   const locked = ident?.status === 'verified' || ident?.status === 'pending';
@@ -68,7 +90,10 @@ export function IdentityVerificationScreen({ navigation }: any) {
     // rejects an ID already linked to another account.
     try {
       await Api.auth.ensureSession();
-      await Api.identity.submit({ legalName: legalName.trim(), idType, idNumber: idNumber.trim(), dob: dob.trim() });
+      // Upload the ID photos + selfie to cloud storage, then submit with the URLs
+      // so the Ops reviewer can visually verify the person.
+      const [docFrontUrl, docBackUrl, selfieUrl] = await Promise.all([uploadOne(docFront), uploadOne(docBack), uploadOne(selfie)]);
+      await Api.identity.submit({ legalName: legalName.trim(), idType, idNumber: idNumber.trim(), dob: dob.trim(), docFront: docFrontUrl, docBack: docBackUrl, selfie: selfieUrl });
     } catch (e: any) {
       setSubmitting(false);
       if (e?.code === 'IDENTITY_IN_USE') {
@@ -153,6 +178,11 @@ export function IdentityVerificationScreen({ navigation }: any) {
                 </TouchableOpacity>
               )}
             </View>
+            <Text style={styles.label}>Selfie (face the camera)</Text>
+            <TouchableOpacity style={styles.docCard} onPress={() => pickDoc('selfie')}>
+              {selfie ? <Ionicons name="checkmark-circle" size={26} color={colors.success} /> : <Ionicons name="happy-outline" size={26} color={colors.textSecondary} />}
+              <Text style={styles.docText}>{selfie ? 'Selfie added' : 'Add a selfie'}</Text>
+            </TouchableOpacity>
             <View style={styles.privacy}>
               <Ionicons name="lock-closed-outline" size={14} color={colors.textTertiary} />
               <Text style={styles.privacyText}>Your documents are encrypted and only used for verification. StayOn never shares them with guests.</Text>

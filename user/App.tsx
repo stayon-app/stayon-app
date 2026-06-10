@@ -91,6 +91,10 @@ export default function App() {
   // React has mounted and painted the splash — remove the web boot spinner.
   useEffect(() => {
     hideBootLoader();
+    // Load Ops-controlled feature flags so the app can gate features live.
+    import('./src/services/featureFlags').then((m) => m.loadFeatureFlags()).catch(() => {});
+    // Register for push notifications (no-op until expo-notifications is added).
+    import('./src/services/push').then((m) => m.registerForPush()).catch(() => {});
   }, []);
 
   useEffect(() => {

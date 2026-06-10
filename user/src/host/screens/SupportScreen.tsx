@@ -11,7 +11,7 @@ import { ScreenHeader } from '../components/common';
 const FAQS: { q: string; a: string }[] = [
   { q: 'How much does StayOn charge me?', a: 'Nothing. StayOn charges 0% platform fee to both hosts and guests. You keep your full nightly rate and cleaning fee — only government taxes pass through.' },
   { q: 'When do I get paid?', a: 'Payouts are released 24 hours after your guest checks in, sent to your default payout method. Set this up under Profile → Payout method.' },
-  { q: 'Can I change my listing’s location?', a: 'No. A listing’s address is fixed once created, since it’s tied to verification and guest trust. Everything else — price, photos, amenities, rules — stays fully editable.' },
+  { q: 'Can I change my stay’s location?', a: 'No. A stay’s address is fixed once created, since it’s tied to verification and guest trust. Everything else — price, photos, amenities, rules — stays fully editable.' },
   { q: 'How does identity verification work?', a: 'You submit your legal name and a government ID once. After it’s verified it’s locked and can’t be edited. Your documents are encrypted and never shared with guests.' },
   { q: 'What if a guest damages my place?', a: 'Use Checkout → Report damage to document it with photos and a note. Since StayOn takes 0%, any agreed reimbursement is settled directly between you and the guest.' },
   { q: 'How do I accept or decline a request?', a: 'Open the request from Reservations or Today, then Accept or Decline. Instant‑book stays are confirmed automatically based on your rules.' },

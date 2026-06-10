@@ -15,6 +15,7 @@ import { STAYON_GRADIENT } from '../components/GradientButton';
 import { getReservations } from '../data/reservations';
 import { buildPayouts, buildDailyEarnings, buildMonthlyEarnings, earningsSummary, type Payout, type DayEarning, type MonthEarning } from '../data/analytics';
 import { getPayout, type Payout as PayoutMethod } from '../data/account';
+import { Api } from '../../api';
 
 export function PayoutsScreen({ navigation }: any) {
   const { colors } = useTheme();
@@ -29,6 +30,7 @@ export function PayoutsScreen({ navigation }: any) {
   const [days, setDays] = useState<DayEarning[]>([]);
   const [months, setMonths] = useState<MonthEarning[]>([]);
   const [summary, setSummary] = useState({ lifetime: 0, thisMonth: 0, best: null as MonthEarning | null, monthsCount: 0 });
+  const [livePayouts, setLivePayouts] = useState<any[] | null>(null);
   const [mode, setMode] = useState<'month' | 'day'>('month');
 
   useFocusEffect(
@@ -43,14 +45,20 @@ export function PayoutsScreen({ navigation }: any) {
         setSummary(earningsSummary(res, new Date()));
       });
       getPayout().then((m) => { if (active) setMethod(m); });
+      // Authoritative payouts from the backend (real bookings, any device).
+      (async () => { try { await Api.auth.ensureSession(); const r: any = await Api.payouts(); if (active) setLivePayouts(r?.items || []); } catch { /* offline → local */ } })();
       return () => { active = false; };
     }, [])
   );
 
   const maxMonth = months.reduce((m, x) => Math.max(m, x.amount), 0) || 1;
 
-  const scheduledTotal = scheduled.reduce((s, p) => s + p.amount, 0);
-  const paidTotal = paid.reduce((s, p) => s + p.amount, 0);
+  const scheduledTotal = livePayouts
+    ? livePayouts.filter((p) => p.status !== 'paid').reduce((s, p) => s + (p.amountUSD || 0), 0)
+    : scheduled.reduce((s, p) => s + p.amount, 0);
+  const paidTotal = livePayouts
+    ? livePayouts.filter((p) => p.status === 'paid').reduce((s, p) => s + (p.amountUSD || 0), 0)
+    : paid.reduce((s, p) => s + p.amount, 0);
 
   const Row = ({ p }: { p: Payout }) => (
     <View style={styles.row}>

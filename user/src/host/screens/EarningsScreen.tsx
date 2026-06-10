@@ -12,6 +12,7 @@ import { ScreenHeader } from '../components/common';
 import { StatCard } from '../components/StatCard';
 import { EarningsChart } from '../components/EarningsChart';
 import { getReservations, type HostReservation } from '../data/reservations';
+import { Api } from '../../api';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -20,17 +21,21 @@ export function EarningsScreen({ navigation }: any) {
   const { format } = useCurrency();
   const styles = makeStyles(colors);
   const [res, setRes] = useState<HostReservation[]>([]);
+  const [live, setLive] = useState<{ grossUSD: number; netUSD: number; bookings: number } | null>(null);
 
   useFocusEffect(
     React.useCallback(() => {
       let active = true;
       getReservations().then((r) => { if (active) setRes(r); });
+      // Authoritative earnings from the backend (real bookings across devices).
+      (async () => { try { await Api.auth.ensureSession(); const e = await Api.earnings(); if (active) setLive(e); } catch { /* offline → local */ } })();
       return () => { active = false; };
     }, [])
   );
 
   const earning = res.filter((r) => r.status === 'confirmed' || r.status === 'completed');
-  const total = earning.reduce((s, r) => s + r.payout, 0);
+  // Prefer the backend total when it has real bookings; else compute locally.
+  const total = (live && live.bookings > 0) ? live.netUSD : earning.reduce((s, r) => s + r.payout, 0);
   const pendingPayout = res.filter((r) => r.status === 'confirmed').reduce((s, r) => s + r.payout, 0);
   const nights = earning.reduce((s, r) => s + r.nights, 0);
   const avgRate = earning.length ? Math.round(earning.reduce((s, r) => s + r.subtotal / r.nights, 0) / earning.length) : 0;

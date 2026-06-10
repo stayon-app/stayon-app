@@ -10,6 +10,7 @@ import { fonts, fontSizes, spacing, borderRadius, letterSpacing, shadows } from 
 import { withOpacity } from '../utils/color';
 import { EmptyState } from '../components/common';
 import { getThreads, getPinned, togglePin, needsReply, type Thread } from '../data/messages';
+import { Api } from '../../api';
 
 type Filter = 'all' | 'unread' | 'reply';
 
@@ -30,6 +31,27 @@ export function InboxScreen({ navigation }: any) {
         setThreads(t);
         setPinned(new Set(p));
       });
+      // Pull REAL guest conversations from the backend (cross-device) and merge
+      // them in front of the local/demo threads.
+      (async () => {
+        try {
+          await Api.auth.ensureSession();
+          const r: any = await Api.threads.mine();
+          const live: Thread[] = (r?.items || []).map((bt: any) => ({
+            id: String(bt.id),
+            guestName: bt.guest_name || 'Guest',
+            guestAvatar: `https://i.pravatar.cc/150?u=${bt.guest_id || bt.id}`,
+            listingTitle: bt.listing_title || 'Your stay',
+            online: false, unread: 0, lastTime: '', messages: [],
+          }));
+          if (active && live.length) {
+            setThreads((prev) => {
+              const seen = new Set(live.map((x) => x.id));
+              return [...live, ...prev.filter((x) => !seen.has(x.id))];
+            });
+          }
+        } catch { /* offline → local threads only */ }
+      })();
       return () => { active = false; };
     }, [])
   );
@@ -60,7 +82,7 @@ export function InboxScreen({ navigation }: any) {
   const Row = ({ t }: { t: Thread }) => {
     const reply = needsReply(t);
     return (
-      <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => { light(); navigation.navigate('Chat', { id: t.id }); }}>
+      <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={() => { light(); navigation.navigate('Chat', { id: t.id, guestName: t.guestName, listingTitle: t.listingTitle, guestAvatar: t.guestAvatar }); }}>
         <View>
           <Image source={{ uri: t.guestAvatar }} style={styles.avatar} contentFit="cover" />
           {t.online && <View style={styles.online} />}

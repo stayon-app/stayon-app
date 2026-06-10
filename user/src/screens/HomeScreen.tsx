@@ -38,6 +38,7 @@ import { getPendingBooking, clearPendingBooking, type PendingBooking } from '../
 import { getRecentlyViewed, type RecentStay } from '../data/recentlyViewed';
 import { buildThingsToDo } from '../data/thingsToDo';
 import { getFeedReels, type Reel } from '../data/reels';
+import { isFeatureEnabled } from '../services/featureFlags';
 import { getHostListingsAsProperties } from '../data/hostListings';
 import { applyStayFilters, isFilterActive } from '../utils/stayFilters';
 import { useFocusEffect } from '@react-navigation/native';
@@ -818,7 +819,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           )}
         </Reveal>
 
-        {/* StayReels */}
+        {/* StayReels — gated by the Ops "reels" feature flag */}
+        {isFeatureEnabled('reels') && (
         <Reveal delay={380} mode="rise" style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -863,6 +865,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             />
           </ScrollView>
         </Reveal>
+        )}
 
         {/* Curated Collections */}
         <Reveal delay={460} mode="rise" style={styles.section}>

@@ -13,6 +13,7 @@ import { withOpacity } from '../utils/color';
 import { ScreenHeader } from '../components/common';
 import { STAYON_GRADIENT } from '../components/GradientButton';
 import { getPayout, savePayout, clearPayout, getPayoutRequest, requestPayoutChange, cancelPayoutRequest, getIdentity, type Payout, type PayoutKind, type PayoutChangeRequest, type Identity } from '../data/account';
+import { Api } from '../../api';
 
 const KINDS: { key: PayoutKind; label: string; icon: any; hint: string }[] = [
   { key: 'bank', label: 'Bank account', icon: 'business-outline', hint: 'Direct deposit to your bank' },
@@ -73,6 +74,9 @@ export function PayoutSetupScreen({ navigation }: any) {
       success();
       await savePayout(p);
       setPayout(p); setEditing(false);
+      // Establish a connected payout account on the backend (Stripe/Razorpay/sim)
+      // so escrow funds can be transferred to this host.
+      try { await Api.auth.ensureSession(); await Api.payoutConnect(); } catch { /* offline */ }
     }
     setHolder(''); setAccount(''); setExtra('');
   };

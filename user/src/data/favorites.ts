@@ -11,6 +11,15 @@ import {
   WishlistCollection,
   WishlistStay,
 } from './wishlists';
+import { Api } from '../api';
+
+// A real backend listing id from a stay (search stays are id `be_<uuid>`).
+function backendListingId(stay: WishlistStay): string | null {
+  const hl = (stay as any).hostListingId;
+  if (hl) return String(hl);
+  const id = String(stay.id);
+  return id.startsWith('be_') ? id.slice(3) : null;
+}
 
 const SAVED_ID = 'wl_saved';
 const SAVED_NAME = 'Saved';
@@ -72,6 +81,16 @@ export async function toggleFavorite(stay: WishlistStay): Promise<boolean> {
   if (exists) cache.delete(id);
   else cache.add(id);
   notify();
+
+  // Mirror to the backend so saved stays follow the user across devices
+  // (real backend listings only; curated/demo stays stay local).
+  const bid = backendListingId(stay);
+  if (bid) {
+    try {
+      await Api.auth.ensureSession();
+      if (exists) await Api.wishlists.remove(bid); else await Api.wishlists.add(bid);
+    } catch { /* offline — local save still applied */ }
+  }
   return !exists;
 }
 

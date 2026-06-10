@@ -11,6 +11,7 @@ import { fonts, fontSizes, spacing, borderRadius, shadows } from '../constants';
 import { withOpacity } from '../utils/color';
 import { ScreenHeader } from '../components/common';
 import { getThreads, sendHostMessage, markRead, type Thread } from '../data/messages';
+import { Api } from '../../api';
 import { getReservations } from '../data/reservations';
 import { getTemplates, addTemplate, deleteTemplate, fillTemplate, type SavedMessage } from '../data/savedMessages';
 import { inspectMessage } from '../utils/contentGuard';
@@ -47,12 +48,30 @@ export function ChatScreen({ navigation, route }: any) {
   const [newTitle, setNewTitle] = useState('');
   const [newBody, setNewBody] = useState('');
   const [adding, setAdding] = useState(false);
+  const [isBackend, setIsBackend] = useState(false);
+
+  const loadBackendMsgs = async () => {
+    const r: any = await Api.threads.messages(id);
+    return (r?.items || []).map((m: any) => ({ id: String(m.id), sender: m.sender, text: m.text, time: '' }));
+  };
 
   useFocusEffect(
     React.useCallback(() => {
       let active = true;
-      getThreads().then((all) => { if (active) setThread(all.find((t) => t.id === id) ?? null); });
-      markRead(id);
+      (async () => {
+        const all = await getThreads();
+        const local = all.find((t) => t.id === id);
+        if (local) { if (active) { setThread(local); setIsBackend(false); } markRead(id); return; }
+        // Not local → a REAL backend thread from the synced inbox. Load it.
+        try {
+          await Api.auth.ensureSession();
+          const messages = await loadBackendMsgs();
+          if (active) {
+            setThread({ id, guestName: route?.params?.guestName || 'Guest', guestAvatar: route?.params?.guestAvatar || '', listingTitle: route?.params?.listingTitle || '', online: false, unread: 0, lastTime: '', messages });
+            setIsBackend(true);
+          }
+        } catch { if (active) setThread(null); }
+      })();
       return () => { active = false; };
     }, [id])
   );
@@ -92,8 +111,18 @@ export function ChatScreen({ navigation, route }: any) {
     setWarning(null);
     medium();
     setInput('');
-    const all = await sendHostMessage(id, t);
-    setThread(all.find((x) => x.id === id) ?? null);
+    if (isBackend) {
+      // Real backend thread → send to the server so the guest receives it.
+      try {
+        await Api.auth.ensureSession();
+        await Api.threads.send(id, t);
+        const messages = await loadBackendMsgs();
+        setThread((prev) => (prev ? { ...prev, messages } : prev));
+      } catch { /* offline */ }
+    } else {
+      const all = await sendHostMessage(id, t);
+      setThread(all.find((x) => x.id === id) ?? null);
+    }
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
   };
 
@@ -115,7 +144,7 @@ export function ChatScreen({ navigation, route }: any) {
           <Text style={styles.smartLabel}>Suggested replies</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.quickScroll} contentContainerStyle={styles.quickWrap}>
-          {smartReplies(thread?.messages.filter((m) => m.sender === 'guest').slice(-1)[0]?.text, confirmed).map((q, i) => (
+          {smartReplies((thread?.messages ?? []).filter((m) => m.sender === 'guest').slice(-1)[0]?.text, confirmed).map((q, i) => (
             <TouchableOpacity key={i} style={styles.quick} onPress={() => { light(); send(q); }}><Text style={styles.quickText}>{q}</Text></TouchableOpacity>
           ))}
         </ScrollView>

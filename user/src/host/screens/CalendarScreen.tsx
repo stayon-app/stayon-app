@@ -15,6 +15,7 @@ import { STAYON_GRADIENT } from '../components/GradientButton';
 import { getListings, listingUSD, type HostListing } from '../data/listings';
 import { getReservations } from '../data/reservations';
 import { getBlocked, toggleBlocked, bookedDates, getDatePrices, setDatePrice } from '../data/calendar';
+import { Api } from '../../api';
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -71,6 +72,16 @@ export function CalendarScreen() {
   const weekend = listingUSD(listing?.weekendPrice ?? listing?.price, listing?.priceCurrency);
   const priceFor = (ds: string, isWeekend: boolean) => prices[ds] ?? (isWeekend ? weekend : base);
 
+  // Push blocked dates + price overrides to the backend so guests see real
+  // availability on every device. Only for listings synced to the backend.
+  const syncCalendar = async (blockedSet: Set<string>, priceMap: Record<string, number>) => {
+    const remoteId = listings.find((l) => l.id === activeId)?.remoteId;
+    if (!remoteId) return;
+    const dayKeys = new Set<string>([...blockedSet, ...Object.keys(priceMap)]);
+    const days = [...dayKeys].map((day) => ({ day, blocked: blockedSet.has(day), priceUSD: priceMap[day] ?? null }));
+    try { await Api.auth.ensureSession(); await Api.listings.setCalendar(remoteId, days); } catch { /* offline — local still saved */ }
+  };
+
   // Build the month grid
   const firstWeekday = month.day();
   const daysIn = month.daysInMonth();
@@ -99,11 +110,13 @@ export function CalendarScreen() {
     const nextPrices = await setDatePrice(activeId, editDate, Math.abs(usd - defaultUSD) < 0.5 ? null : usd);
     setPrices(nextPrices);
     // Apply block state if it changed.
+    let nb = blocked;
     if (blockInput !== blocked.has(editDate)) {
-      const nb = await toggleBlocked(activeId, editDate);
-      setBlocked(new Set(nb));
+      nb = new Set(await toggleBlocked(activeId, editDate));
+      setBlocked(nb);
     }
     setEditDate(null);
+    syncCalendar(nb, nextPrices);
   };
 
   const resetPrice = async () => {
@@ -145,6 +158,7 @@ export function CalendarScreen() {
     setPrices({ ...np });
     setBlocked(nb);
     setShowRangeSheet(false); setRangeMode(false); setRangeStart(null); setRangeEnd(null);
+    syncCalendar(nb, np);
   };
 
   const inRange = (ds: string) => {

@@ -7,6 +7,8 @@ const cors = require('cors');
 const { sign, authUser, authStaff } = require('./auth');
 const { supabase, configured, BUCKET_LISTINGS } = require('./supabase');
 const { verifyIdentity } = require('./kyc');
+const payments = require('./payments');
+const totp = require('./totp');
 
 if (!configured) {
   console.error('FATAL: Supabase not configured. Add SUPABASE_URL + SUPABASE_SERVICE_KEY to backend/.env');
@@ -51,7 +53,32 @@ function distKm(aLat, aLng, bLat, bLng) {
   const s = Math.sin(dLat / 2) ** 2 + Math.cos(toR(aLat)) * Math.cos(toR(bLat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
 }
-async function notify(userId, type, payload) { try { await insertRow('notifications', { user_id: userId, type, payload }); } catch {} }
+async function notify(userId, type, payload) {
+  try { await insertRow('notifications', { user_id: userId, type, payload }); } catch {}
+  sendPush(userId, pushTitle(type), pushBody(type, payload)); // best-effort, fire-and-forget
+}
+// Best-effort Expo push (no-op if the user has no token or fetch fails).
+async function sendPush(userId, title, body) {
+  try {
+    if (!userId) return;
+    const u = await one('users', { id: userId });
+    if (!u || !u.push_token) return;
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ to: u.push_token, title, body, sound: 'default' }),
+    });
+  } catch { /* push is best-effort */ }
+}
+function pushTitle(type) {
+  const m = { 'booking.request': 'New booking request', 'booking.confirmed': 'Booking confirmed',
+    'payout.sent': 'Payout sent', 'payout.held': 'Payout on hold', 'payout.released': 'Payout released',
+    'refund.issued': 'Refund issued', 'kyc.verified': 'Identity verified', 'kyc.rejected': 'Identity needs attention' };
+  return m[type] || 'StayOn';
+}
+function pushBody(type, p) {
+  if (p && p.code) return `Booking ${p.code}${p.amount ? ' · $' + p.amount : ''}`;
+  return 'Open StayOn for details.';
+}
 async function audit(req, action, target_type, target_id, meta) { try { await insertRow('audit_log', { actor_id: req.auth?.sub, action, target_type, target_id: String(target_id), meta }); } catch {} }
 const wrap = (fn) => (req, res) => fn(req, res).catch((e) => err(res, e.code || 'SERVER', e.message || 'error', 500));
 
@@ -264,6 +291,19 @@ app.put('/v1/listings/:id', authUser, wrap(async (req, res) => {
   if (!l) return err(res, 'NOTFOUND', 'listing not found', 404);
   if (l.host_id !== req.auth.sub) return err(res, 'FORBIDDEN', 'not your listing', 403);
   const patch = listingIn(req.body);
+  // Defensive: a PARTIAL update must not wipe fields the caller didn't send.
+  // Drop array columns that weren't provided, and MERGE the `extra` jsonb
+  // (preserving existing pricing/pets/languages/rules when omitted).
+  const sent = (k) => Object.prototype.hasOwnProperty.call(req.body, k);
+  if (!sent('amenities')) delete patch.amenities;
+  if (!sent('vibes')) delete patch.vibes;
+  if (!sent('highlights')) delete patch.highlights;
+  if (!sent('images')) delete patch.images;
+  const newExtra = {};
+  for (const [k, v] of Object.entries(patch.extra || {})) {
+    if (v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0)) newExtra[k] = v;
+  }
+  patch.extra = { ...(l.extra || {}), ...newExtra };
   if (req.body.publish !== undefined) patch.status = req.body.publish ? 'published' : (l.status || 'draft');
   const { error } = await sb.from('listings').update(patch).eq('id', req.params.id);
   if (error && /extra/.test(error.message || '')) {
@@ -342,8 +382,15 @@ app.post('/v1/bookings', authUser, wrap(async (req, res) => {
     code, listing_id: listingId, listing_title: l.title, host_id: l.host_id, guest_id: req.auth.sub, guest_name: req.auth.name,
     check_in: checkIn, check_out: checkOut, nights, rate_usd: l.price_usd, status, instant: !!l.instant_book,
   });
+  // Start the payment — money is collected and HELD in escrow (sim or real).
+  let pay = { status: 'held' };
+  try {
+    const intent = await payments.createIntent(booking);
+    await sb.from('bookings').update({ payment_intent_id: intent.intentId, payment_status: intent.status }).eq('id', booking.id);
+    pay = { status: intent.status, clientSecret: intent.clientSecret, provider: payments.PROVIDER };
+  } catch { /* migration-009 not run → escrow still tracked via status */ }
   await notify(l.host_id, l.instant_book ? 'booking.confirmed' : 'booking.request', { code });
-  ok(res, { id: booking.id, code, status, payment: { status: 'authorized', escrowHeld: true } });
+  ok(res, { id: booking.id, code, status, payment: pay });
 }));
 
 app.get('/v1/bookings', authUser, wrap(async (req, res) =>
@@ -489,9 +536,10 @@ app.post('/v1/identity/submit', authUser, wrap(async (req, res) => {
   // Ask the KYC provider (or fall back to the Ops manual-review queue).
   const verdict = await verifyIdentity({ idType, idNumber, dob, legalName, country: req.body.country });
 
-  const full = { user_id: req.auth.sub, legal_name: legalName, id_type: idType, id_last4, dob: dob || null, id_hash, status: verdict.status, provider: process.env.KYC_PROVIDER || null, provider_ref: verdict.providerRef || null, submitted_at: now() };
+  const docs = { front: req.body.docFront || null, back: req.body.docBack || null, selfie: req.body.selfie || null };
+  const full = { user_id: req.auth.sub, legal_name: legalName, id_type: idType, id_last4, dob: dob || null, id_hash, docs, status: verdict.status, provider: process.env.KYC_PROVIDER || null, provider_ref: verdict.providerRef || null, submitted_at: now() };
   const { error: upErr } = await sb.from('identities').upsert(full);
-  if (upErr && /id_hash|dob/.test(upErr.message || '')) {
+  if (upErr && /id_hash|dob|docs/.test(upErr.message || '')) {
     // migration-003 not run yet → store without the new columns (no dedup yet)
     await sb.from('identities').upsert({ user_id: req.auth.sub, legal_name: legalName, id_type: idType, status: verdict.status, submitted_at: now() });
     return ok(res, { status: verdict.status, dedup: false });
@@ -583,10 +631,12 @@ app.post('/v1/ops/listings/:id/reject', authStaff('content_mod'), wrap(async (re
 app.get('/v1/ops/queues/kyc', authStaff('kyc_reviewer'), wrap(async (req, res) =>
   ok(res, { items: await rows('identities', { status: 'pending' }) })));
 app.post('/v1/ops/kyc/:userId/:decision', authStaff('kyc_reviewer'), wrap(async (req, res) => {
-  const status = req.params.decision === 'approve' ? 'verified' : 'rejected';
+  const verified = req.params.decision === 'approve' || req.params.decision === 'verify';
+  const status = verified ? 'verified' : 'rejected';
+  const reason = req.body?.reason || null;
   await updateByMatch('identities', { user_id: req.params.userId }, { status, reviewed_at: now() });
-  await audit(req, 'kyc.' + req.params.decision, 'identity', req.params.userId);
-  await notify(req.params.userId, 'kyc.' + status, {});
+  await audit(req, 'kyc.' + (verified ? 'verify' : 'reject'), 'identity', req.params.userId, { reason });
+  await notify(req.params.userId, 'kyc.' + status, { reason });
   ok(res, { status });
 }));
 app.get('/v1/ops/queues/reels', authStaff('content_mod'), wrap(async (req, res) =>
@@ -634,10 +684,11 @@ app.post('/v1/ops/refunds', authStaff('finance'), wrap(async (req, res) => {
   const b = await one('bookings', { code: req.body.bookingCode });
   if (!b) return err(res, 'NOTFOUND', 'booking not found', 404);
   const amount = req.body.amountUSD ?? Math.max(0, (b.total_usd || 0) - (b.taxes_usd || 0));
-  await sb.from('bookings').update({ refund_usd: amount }).eq('id', b.id);
-  await audit(req, 'refund', 'booking', b.code, { amount });
+  const re = await payments.refund(b, amount);                       // money back to guest
+  await sb.from('bookings').update({ refund_usd: amount, payment_status: 'refunded' }).eq('id', b.id).then(() => {}, () => sb.from('bookings').update({ refund_usd: amount }).eq('id', b.id));
+  await audit(req, 'refund', 'booking', b.code, { amount, refundId: re.refundId });
   await notify(b.guest_id, 'refund.issued', { code: b.code, amount });
-  ok(res, { code: b.code, refundUSD: amount });
+  ok(res, { code: b.code, refundUSD: amount, refundId: re.refundId });
 }));
 
 // Ops review moderation
@@ -741,6 +792,402 @@ app.get('/v1/hosts/:id', wrap(async (req, res) => {
     stays, reviews,
     stats: { reviews: reviews.length, rating: ratingAvg, listings: stays.length },
   });
+}));
+
+// =========================================================================
+// OPS MODULES (Phases 2 & 3) — tickets, disputes, safety, markets, partners,
+// field tasks, region rules + QA scorecards, review insights, GDPR.
+// Tables come from migration-004; endpoints follow the /v1/ops/* + authStaff
+// pattern and write the audit log. They degrade gracefully if the migration
+// hasn't run (list returns []).
+// =========================================================================
+function opsModule(slug, table, roles, hooks = {}) {
+  app.get(`/v1/ops/${slug}`, authStaff(...roles), wrap(async (req, res) => {
+    const { data, error } = await sb.from(table).select('*').order('created_at', { ascending: false }).limit(300);
+    if (error) return ok(res, { items: [], note: 'run migration-004' });
+    ok(res, { items: data || [] });
+  }));
+  app.post(`/v1/ops/${slug}`, authStaff(...roles), wrap(async (req, res) => {
+    const row = await insertRow(table, req.body || {});
+    await audit(req, `${slug}.create`, slug, row.id);
+    if (hooks.onCreate) await hooks.onCreate(row, req);
+    ok(res, row);
+  }));
+  app.post(`/v1/ops/${slug}/:id/:action`, authStaff(...roles), wrap(async (req, res) => {
+    const patch = { status: req.params.action, ...(req.body && typeof req.body === 'object' ? req.body : {}) };
+    const { error } = await sb.from(table).update(patch).eq('id', req.params.id);
+    if (error) throw error;
+    await audit(req, `${slug}.${req.params.action}`, slug, req.params.id);
+    if (hooks.onAction) await hooks.onAction(req.params.id, req.params.action, req);
+    ok(res, { id: req.params.id, status: req.params.action });
+  }));
+}
+// Quietly set/clear a payout hold (ignores missing column pre-migration-007).
+async function setPayoutHold(code, held, reason) {
+  if (!code) return;
+  try { await sb.from('bookings').update({ payout_held: held, hold_reason: held ? (reason || 'open dispute') : null }).eq('code', code); } catch { /* migration-007 not run */ }
+}
+opsModule('tickets', 'tickets', ['support', 'ops_manager']);
+// Disputes auto-HOLD the booking's payout while open, and RELEASE on resolve.
+opsModule('disputes', 'disputes', ['support', 'finance', 'ops_manager'], {
+  onCreate: async (row) => { if (row.booking_code) await setPayoutHold(row.booking_code, true, 'open dispute'); },
+  onAction: async (id, action) => {
+    if (action === 'resolved' || action === 'rejected') {
+      const d = await one('disputes', { id }).catch(() => null);
+      if (d?.booking_code) await setPayoutHold(d.booking_code, false);
+    }
+  },
+});
+opsModule('safety-cases', 'safety_cases', ['trust_safety', 'ops_manager']);
+opsModule('markets', 'markets', ['compliance', 'ops_manager']);
+opsModule('partners', 'partners', ['ops_manager']);
+opsModule('field-tasks', 'field_tasks', ['ops_manager']);
+opsModule('region-rules', 'region_rules', ['compliance']);
+
+// QA — host scorecards (computed from listings + reviews; no new table)
+app.get('/v1/ops/qa/scorecards', authStaff('analyst', 'ops_manager'), wrap(async (req, res) => {
+  const { data: listings } = await sb.from('listings').select('host_id,host_name,rating_avg,rating_count,status');
+  const byHost = {};
+  (listings || []).forEach((l) => {
+    const h = byHost[l.host_id] || (byHost[l.host_id] = { host: l.host_name || 'Host', listings: 0, published: 0, rating: 0, reviews: 0 });
+    h.listings++; if (l.status === 'published') h.published++;
+    h.rating = Math.max(h.rating, l.rating_avg || 0); h.reviews += l.rating_count || 0;
+  });
+  ok(res, { items: Object.values(byHost).sort((a, b) => b.reviews - a.reviews) });
+}));
+
+// QA — review insights (computed)
+app.get('/v1/ops/qa/insights', authStaff('analyst', 'ops_manager'), wrap(async (req, res) => {
+  const { data: reviews } = await sb.from('reviews').select('rating,text');
+  const total = (reviews || []).length;
+  const avg = total ? (reviews.reduce((s, r) => s + (r.rating || 0), 0) / total) : 0;
+  const low = (reviews || []).filter((r) => (r.rating || 0) <= 3).length;
+  ok(res, { items: [
+    { id: 'm1', label: 'Total reviews', value: String(total) },
+    { id: 'm2', label: 'Average rating', value: avg.toFixed(2) },
+    { id: 'm3', label: 'Low ratings (≤3)', value: String(low) },
+    { id: 'm4', label: 'Needs attention', value: low > 0 ? `${low} review(s)` : 'none' },
+  ] });
+}));
+
+// HOST operations — every host (derived from listings) with their stats + status
+app.get('/v1/ops/hosts', authStaff('ops_manager', 'trust_safety', 'analyst'), wrap(async (req, res) => {
+  const { data: listings } = await sb.from('listings').select('host_id,host_name,status,rating_avg,rating_count');
+  const byHost = {};
+  (listings || []).forEach((l) => {
+    if (!l.host_id) return;
+    const h = byHost[l.host_id] || (byHost[l.host_id] = { id: l.host_id, name: l.host_name || 'Host', listings: 0, published: 0, rating: 0, reviews: 0 });
+    h.listings++; if (l.status === 'published') h.published++;
+    h.rating = Math.max(h.rating, l.rating_avg || 0); h.reviews += l.rating_count || 0;
+  });
+  const ids = Object.keys(byHost);
+  if (ids.length) {
+    const { data: us } = await sb.from('users').select('id,status,phone').in('id', ids);
+    (us || []).forEach((u) => { if (byHost[u.id]) { byHost[u.id].status = u.status || 'active'; byHost[u.id].phone = u.phone; } });
+  }
+  ok(res, { items: Object.values(byHost).sort((a, b) => b.listings - a.listings) });
+}));
+
+// GUEST operations — every guest (a user) with booking activity
+app.get('/v1/ops/guests', authStaff('ops_manager', 'trust_safety', 'support'), wrap(async (req, res) => {
+  const { data: users } = await sb.from('users').select('id,name,phone,email,status,created_at').order('created_at', { ascending: false }).limit(300);
+  const { data: bks } = await sb.from('bookings').select('guest_id');
+  const counts = {};
+  (bks || []).forEach((b) => { counts[b.guest_id] = (counts[b.guest_id] || 0) + 1; });
+  ok(res, { items: (users || []).map((u) => ({ ...u, bookings: counts[u.id] || 0 })) });
+}));
+
+// GDPR — export / erase a user's data (compliance)
+app.post('/v1/ops/users/:id/export', authStaff('compliance', 'ops_manager'), wrap(async (req, res) => {
+  const user = await one('users', { id: req.params.id });
+  const bookings = await rows('bookings', { guest_id: req.params.id });
+  const identity = await one('identities', { user_id: req.params.id });
+  await audit(req, 'gdpr.export', 'user', req.params.id);
+  ok(res, { user, bookings, identity });
+}));
+app.post('/v1/ops/users/:id/erase', authStaff('compliance', 'ops_manager'), wrap(async (req, res) => {
+  await sb.from('users').update({ name: '[erased]', phone: null, email: null }).eq('id', req.params.id);
+  await audit(req, 'gdpr.erase', 'user', req.params.id);
+  ok(res, { id: req.params.id, erased: true });
+}));
+
+// =========================================================================
+// OPS v2 — fraud/risk, payout ops, maintenance, dev/release (migration-005)
+// =========================================================================
+opsModule('risk-flags', 'risk_flags', ['trust_safety', 'finance']);
+opsModule('maintenance', 'maintenance', ['ops_manager']);
+opsModule('incidents', 'incidents', ['ops_manager']);
+opsModule('bank-accounts', 'bank_accounts', ['finance']);
+
+// Payout escrow — derived from real bookings: held until check-in → releasable
+// → paid when completed. Ops can put a payout ON HOLD (migration-007).
+app.get('/v1/ops/escrow', authStaff('finance', 'ops_manager'), wrap(async (req, res) => {
+  const { data: bks } = await sb.from('bookings').select('*');
+  const today = new Date().toISOString().slice(0, 10);
+  const items = (bks || []).filter((b) => b.status === 'confirmed' || b.status === 'completed').map((b) => ({
+    code: b.code, hostId: b.host_id, amountUSD: (b.subtotal_usd || 0) + (b.cleaning_usd || 0),
+    status: b.payout_held ? 'on-hold' : (b.payout_paid || b.status === 'completed' ? 'paid' : (b.check_in && b.check_in <= today ? 'releasable' : 'held')),
+    releaseAt: b.check_in,
+  }));
+  ok(res, { items });
+}));
+
+// Payout auto-scheduler — pays out eligible bookings (past check-in + grace,
+// not on hold). Run on a button or a cron — "pays hosts on time".
+app.post('/v1/ops/payouts/run-scheduler', authStaff('finance', 'ops_manager'), wrap(async (req, res) => {
+  const GRACE_DAYS = 1;
+  const cutoff = new Date(Date.now() - GRACE_DAYS * 86400000).toISOString().slice(0, 10);
+  let paid = 0, held = 0, waiting = 0;
+  try {
+    const { data: bks } = await sb.from('bookings').select('*').in('status', ['confirmed', 'completed']);
+    for (const b of (bks || [])) {
+      if (b.payout_paid) continue;
+      if (b.payout_held) { held++; continue; }
+      if (b.check_in && b.check_in <= cutoff) {
+        const host = b.host_id ? await one('users', { id: b.host_id }).catch(() => null) : null;
+        const tr = await payments.transferToHost(b, host?.payout_account_id);   // release escrow → host
+        await sb.from('bookings').update({ payout_paid: true, transfer_id: tr.transferId, payment_status: 'paid' }).eq('code', b.code).then(() => {}, () => sb.from('bookings').update({ payout_paid: true }).eq('code', b.code));
+        await notify(b.host_id, 'payout.sent', { code: b.code });
+        paid++;
+      } else waiting++;
+    }
+  } catch (e) { return err(res, 'SERVER', /payout_paid/.test(e.message || '') ? 'Run migration-007 to enable the scheduler.' : e.message, 500); }
+  await audit(req, 'payout.scheduler.run', 'payouts', `paid=${paid}`);
+  ok(res, { paid, held, waiting });
+}));
+
+// Full booking detail for the payout review drawer — guest, host, money split.
+app.get('/v1/ops/bookings/:code', authStaff('finance', 'support', 'ops_manager', 'trust_safety'), wrap(async (req, res) => {
+  const b = await one('bookings', { code: req.params.code });
+  if (!b) return err(res, 'NOTFOUND', 'booking not found', 404);
+  const guest = b.guest_id ? await one('users', { id: b.guest_id }).catch(() => null) : null;
+  const host = b.host_id ? await one('users', { id: b.host_id }).catch(() => null) : null;
+  await audit(req, 'booking.viewed', 'booking', b.code);
+  ok(res, {
+    code: b.code, listingTitle: b.listing_title, status: b.status, checkIn: b.check_in, checkOut: b.check_out, nights: b.nights,
+    guestName: guest?.name || 'Guest', guestId: b.guest_id, hostName: host?.name || 'Host', hostId: b.host_id,
+    subtotalUSD: b.subtotal_usd || 0, cleaningUSD: b.cleaning_usd || 0, taxesUSD: b.taxes_usd || 0, totalUSD: b.total_usd || 0,
+    payoutUSD: (b.subtotal_usd || 0) + (b.cleaning_usd || 0),
+    payoutHeld: !!b.payout_held, holdReason: b.hold_reason || null,
+  });
+}));
+
+// HOLD / RELEASE a host payout (escrow control)
+app.post('/v1/ops/bookings/:code/hold', authStaff('finance', 'trust_safety', 'ops_manager'), wrap(async (req, res) => {
+  const { error } = await sb.from('bookings').update({ payout_held: true, hold_reason: req.body?.reason || 'under review' }).eq('code', req.params.code);
+  if (error) return err(res, 'SERVER', /payout_held|hold_reason/.test(error.message || '') ? 'Run migration-007 to enable payout holds.' : error.message, 500);
+  await audit(req, 'payout.hold', 'booking', req.params.code);
+  await notify(req.body?.hostId, 'payout.held', { code: req.params.code });
+  ok(res, { code: req.params.code, payoutHeld: true });
+}));
+app.post('/v1/ops/bookings/:code/release', authStaff('finance', 'ops_manager'), wrap(async (req, res) => {
+  const { error } = await sb.from('bookings').update({ payout_held: false, hold_reason: null }).eq('code', req.params.code);
+  if (error) return err(res, 'SERVER', error.message, 500);
+  await audit(req, 'payout.release', 'booking', req.params.code);
+  await notify(req.body?.hostId, 'payout.released', { code: req.params.code });
+  ok(res, { code: req.params.code, payoutHeld: false });
+}));
+
+// Feature flags — dev/release ops toggle product features live
+app.get('/v1/ops/feature-flags', authStaff('ops_manager'), wrap(async (req, res) => {
+  const { data, error } = await sb.from('feature_flags').select('*').order('label');
+  if (error) return ok(res, { items: [], note: 'run migration-005' });
+  ok(res, { items: data || [] });
+}));
+app.post('/v1/ops/feature-flags/:id/toggle', authStaff('ops_manager'), wrap(async (req, res) => {
+  const f = await one('feature_flags', { id: req.params.id });
+  if (!f) return err(res, 'NOTFOUND', 'flag not found', 404);
+  await sb.from('feature_flags').update({ enabled: !f.enabled }).eq('id', req.params.id);
+  await audit(req, 'feature.toggle', 'feature_flags', req.params.id);
+  ok(res, { id: req.params.id, enabled: !f.enabled });
+}));
+
+// Fraud scan — derive risk flags from data (e.g. heavy cancellations)
+app.post('/v1/ops/risk-flags/scan', authStaff('trust_safety'), wrap(async (req, res) => {
+  let created = 0;
+  try {
+    const { data: bks } = await sb.from('bookings').select('guest_id,status');
+    const cancels = {};
+    (bks || []).forEach((b) => { if (b.status === 'cancelled' && b.guest_id) cancels[b.guest_id] = (cancels[b.guest_id] || 0) + 1; });
+    for (const [uid, n] of Object.entries(cancels)) {
+      if (n >= 3) {
+        const exists = await one('risk_flags', { user_id: uid, kind: 'high_cancellations' });
+        if (!exists) { await insertRow('risk_flags', { user_id: uid, subject: 'Guest', kind: 'high_cancellations', severity: 'medium', detail: `${n} cancelled bookings` }); created++; }
+      }
+    }
+  } catch { /* table missing → run migration-005 */ }
+  await audit(req, 'risk.scan', 'risk_flags', 'batch');
+  ok(res, { created });
+}));
+
+// Guest verification — identities tagged NEW vs EXISTING (progressive KYC)
+app.get('/v1/ops/verification', authStaff('kyc_reviewer', 'trust_safety'), wrap(async (req, res) => {
+  const { data: ids } = await sb.from('identities').select('user_id,legal_name,id_type,status');
+  const uids = (ids || []).map((i) => i.user_id);
+  const usersById = {};
+  if (uids.length) { const { data: us } = await sb.from('users').select('id,name,phone,created_at').in('id', uids); (us || []).forEach((u) => { usersById[u.id] = u; }); }
+  const NEW_DAYS = 14;
+  const items = (ids || []).map((i) => {
+    const u = usersById[i.user_id] || {};
+    const ageDays = u.created_at ? (Date.now() - new Date(u.created_at).getTime()) / 86400000 : 999;
+    return { userId: i.user_id, name: i.legal_name || u.name || 'User', idType: i.id_type, status: i.status, tier: ageDays <= NEW_DAYS ? 'new' : 'existing' };
+  });
+  ok(res, { items });
+}));
+
+// 360 view — everything about one user/host on one screen
+app.get('/v1/ops/users/:id/360', authStaff('trust_safety', 'support', 'ops_manager', 'kyc_reviewer'), wrap(async (req, res) => {
+  const id = req.params.id;
+  await audit(req, 'identity.viewed', 'user', id); // accountability: who looked at this person's data
+  const user = await one('users', { id });
+  const identity = await one('identities', { user_id: id }).catch(() => null);
+  const bookings = await rows('bookings', { guest_id: id }).catch(() => []);
+  const listings = await rows('listings', { host_id: id }).catch(() => []);
+  const riskFlags = await rows('risk_flags', { user_id: id }).catch(() => []);
+  ok(res, { user, identity, bookings, listings, riskFlags });
+}));
+
+// Register a device push token (Expo) so notify() can also push to the phone.
+app.post('/v1/push/register', authUser, wrap(async (req, res) => {
+  const token = String(req.body?.token || '');
+  if (!token) return err(res, 'BAD', 'token required', 400);
+  await sb.from('users').update({ push_token: token }).eq('id', req.auth.sub).then(() => {}, () => {});
+  ok(res, { registered: true });
+}));
+
+// Host payout onboarding — start a connected payout account (Stripe/Razorpay/sim).
+app.post('/v1/payout-account/connect', authUser, wrap(async (req, res) => {
+  const acct = await payments.connectAccount({ id: req.auth.sub });
+  await sb.from('users').update({ payout_account_id: acct.accountId, payouts_enabled: acct.enabled }).eq('id', req.auth.sub).then(() => {}, () => {});
+  ok(res, { accountId: acct.accountId, onboardingUrl: acct.onboardingUrl, payoutsEnabled: acct.enabled, provider: payments.PROVIDER });
+}));
+
+// Public feature flags — the guest + host apps read these to turn features
+// on/off live (Ops toggles them in /ops/feature-flags). Returns { key: bool }.
+app.get('/v1/feature-flags', wrap(async (req, res) => {
+  try {
+    const { data } = await sb.from('feature_flags').select('key,enabled');
+    const map = {};
+    (data || []).forEach((f) => { map[f.key] = !!f.enabled; });
+    ok(res, { flags: map });
+  } catch { ok(res, { flags: {} }); }
+}));
+
+// =========================================================================
+// OPS v3 — settlements, satisfaction, dev requests, step-up PIN
+// =========================================================================
+opsModule('dev-requests', 'dev_requests', ['ops_manager', 'analyst'], {
+  onCreate: async (row, req) => { await audit(req, 'devrequest.filed', 'dev_requests', row.id, { title: row.title, kind: row.kind }); /* → dev team queue */ },
+});
+
+// Settlements — per-stay money truth: guest paid → host earns → host receives.
+app.get('/v1/ops/settlements', authStaff('finance', 'ops_manager'), wrap(async (req, res) => {
+  const { data: bks } = await sb.from('bookings').select('*');
+  const items = (bks || []).filter((b) => ['confirmed', 'completed'].includes(b.status)).map((b) => {
+    const subtotal = b.subtotal_usd || 0, cleaning = b.cleaning_usd || 0, taxes = b.taxes_usd || 0;
+    const guestPaid = b.total_usd || subtotal + cleaning + taxes;
+    const hostEarns = subtotal + cleaning;          // 0% platform fee → host keeps 100%
+    const processorFee = Math.round((guestPaid * 0.029 + 0.30) * 100) / 100; // est. (guest covers)
+    const payout = b.payout_held ? 'on-hold' : (b.payout_paid || b.status === 'completed' ? 'paid' : 'scheduled');
+    return { code: b.code, listing: b.listing_title, guestPaidUSD: guestPaid, taxesUSD: taxes, cleaningUSD: cleaning,
+      hostEarnsUSD: hostEarns, processorFeeUSD: processorFee, hostReceivesUSD: hostEarns, payout };
+  });
+  const totals = items.reduce((a, x) => ({ gmv: a.gmv + x.guestPaidUSD, payouts: a.payouts + x.hostReceivesUSD, taxes: a.taxes + x.taxesUSD }), { gmv: 0, payouts: 0, taxes: 0 });
+  ok(res, { items, totals });
+}));
+
+// Satisfaction — host-side & guest-side health from real ratings/reviews.
+app.get('/v1/ops/satisfaction', authStaff('analyst', 'ops_manager'), wrap(async (req, res) => {
+  const { data: listings } = await sb.from('listings').select('rating_avg,rating_count,status');
+  const { data: reviews } = await sb.from('reviews').select('rating');
+  const rated = (listings || []).filter((l) => (l.rating_count || 0) > 0);
+  const hostAvg = rated.length ? rated.reduce((s, l) => s + (l.rating_avg || 0), 0) / rated.length : 0;
+  const greatHosts = rated.filter((l) => (l.rating_avg || 0) >= 4.5).length;
+  const total = (reviews || []).length;
+  const guestAvg = total ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / total : 0;
+  ok(res, { items: [
+    { id: 's1', label: 'Host satisfaction (avg rating)', value: hostAvg.toFixed(2) },
+    { id: 's2', label: 'Hosts rated 4.5+', value: `${greatHosts}/${rated.length}` },
+    { id: 's3', label: 'Guest satisfaction (avg review)', value: guestAvg.toFixed(2) },
+    { id: 's4', label: 'Total reviews', value: String(total) },
+    { id: 's5', label: 'Published stays', value: String((listings || []).filter((l) => l.status === 'published').length) },
+  ] });
+}));
+
+// Step-up auth — re-confirm a PIN before opening a sensitive box. Checks the
+// staff member's OWN pin first (if set), else the shared/default PIN.
+app.post('/v1/ops/step-up', authStaff(), wrap(async (req, res) => {
+  const pin = String(req.body?.pin || '');
+  const me = await one('staff', { id: req.auth.sub }).catch(() => null);
+  let good;
+  if (me && me.totp_enabled && me.totp_secret && /^\d{6}$/.test(pin)) good = totp.verify(me.totp_secret, pin); // 2FA code
+  else good = (me && me.pin) ? pin === me.pin : pin === (process.env.OPS_STEPUP_PIN || '2468');             // PIN
+  await audit(req, good ? 'stepup.ok' : 'stepup.fail', 'module', req.body?.module || '');
+  if (!good) return err(res, 'PIN', 'Incorrect code', 401);
+  ok(res, { unlocked: true, factor: (me && me.totp_enabled) ? '2fa' : 'pin' });
+}));
+
+// 2FA (TOTP) — enroll returns an otpauth:// URL to scan; verify turns it on.
+app.post('/v1/ops/2fa/enroll', authStaff(), wrap(async (req, res) => {
+  const secret = totp.generateSecret();
+  const me = await one('staff', { id: req.auth.sub }).catch(() => null);
+  const { error } = await sb.from('staff').update({ totp_secret: secret, totp_enabled: false }).eq('id', req.auth.sub);
+  if (error) return err(res, 'SERVER', /totp/.test(error.message || '') ? 'Run migration-010' : error.message, 500);
+  ok(res, { secret, otpauth: totp.otpauthURL(secret, me?.email || 'staff') });
+}));
+app.post('/v1/ops/2fa/verify', authStaff(), wrap(async (req, res) => {
+  const me = await one('staff', { id: req.auth.sub }).catch(() => null);
+  if (!me?.totp_secret) return err(res, '2FA', 'Enroll first', 400);
+  if (!totp.verify(me.totp_secret, String(req.body?.code || ''))) return err(res, '2FA', 'Invalid code', 401);
+  await sb.from('staff').update({ totp_enabled: true }).eq('id', req.auth.sub);
+  await audit(req, '2fa.enabled', 'staff', req.auth.sub);
+  ok(res, { enabled: true });
+}));
+
+// Full listing detail for review — address, location, photos, amenities, host.
+app.get('/v1/ops/listings/:id/detail', authStaff('content_mod', 'ops_manager', 'trust_safety'), wrap(async (req, res) => {
+  const l = await one('listings', { id: req.params.id });
+  if (!l) return err(res, 'NOTFOUND', 'listing not found', 404);
+  const host = l.host_id ? await one('users', { id: l.host_id }).catch(() => null) : null;
+  await audit(req, 'listing.viewed', 'listing', l.id);
+  ok(res, {
+    id: l.id, title: l.title, type: l.type, status: l.status, description: l.description,
+    address: l.address, city: l.city, country: l.country, lat: l.lat, lng: l.lng,
+    priceUSD: l.price_usd, guests: l.guests, bedrooms: l.bedrooms, beds: l.beds, baths: l.bathrooms,
+    amenities: l.amenities || [], highlights: l.highlights || [],
+    houseRules: (l.extra && (l.extra.houseRules || l.extra.house_rules)) || [],
+    photos: l.images || [], hostName: host?.name || l.host_name || 'Host', hostId: l.host_id, hostPhone: host?.phone || null, instantBook: !!l.instant_book,
+  });
+}));
+
+// Per-host analytics — listings, ratings, bookings, revenue, payouts, occupancy.
+app.get('/v1/ops/hosts/:id/analytics', authStaff('analyst', 'ops_manager', 'trust_safety'), wrap(async (req, res) => {
+  const id = req.params.id;
+  const listings = await rows('listings', { host_id: id }).catch(() => []);
+  const { data: bks } = await sb.from('bookings').select('*').eq('host_id', id);
+  const bookings = bks || [];
+  const active = bookings.filter((b) => ['confirmed', 'completed'].includes(b.status));
+  const rated = listings.filter((l) => (l.rating_count || 0) > 0);
+  await audit(req, 'host.analytics.viewed', 'user', id);
+  ok(res, {
+    listings: listings.length,
+    published: listings.filter((l) => l.status === 'published').length,
+    avgRating: rated.length ? +(rated.reduce((s, l) => s + (l.rating_avg || 0), 0) / rated.length).toFixed(2) : 0,
+    totalReviews: listings.reduce((s, l) => s + (l.rating_count || 0), 0),
+    bookings: bookings.length,
+    nightsBooked: active.reduce((s, b) => s + (b.nights || 0), 0),
+    revenueUSD: active.reduce((s, b) => s + ((b.subtotal_usd || 0) + (b.cleaning_usd || 0)), 0),
+    payoutsUSD: bookings.filter((b) => b.payout_paid).reduce((s, b) => s + ((b.subtotal_usd || 0) + (b.cleaning_usd || 0)), 0),
+  });
+}));
+// Each staff member sets their OWN step-up PIN.
+app.post('/v1/ops/staff/set-pin', authStaff(), wrap(async (req, res) => {
+  const pin = String(req.body?.pin || '');
+  if (!/^\d{4,6}$/.test(pin)) return err(res, 'PIN', 'PIN must be 4–6 digits', 400);
+  const { error } = await sb.from('staff').update({ pin }).eq('id', req.auth.sub);
+  if (error) return err(res, 'SERVER', /pin/.test(error.message || '') ? 'Run migration-009' : error.message, 500);
+  await audit(req, 'staff.set-pin', 'staff', req.auth.sub);
+  ok(res, { ok: true });
 }));
 
 app.get('/', (req, res) => res.json({ service: 'StayOn backend', status: 'ok', store: 'supabase', clients: ['user', 'host', 'ops'] }));

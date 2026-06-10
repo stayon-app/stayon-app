@@ -9,6 +9,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useHaptics } from '../hooks/useHaptics';
 import { Skeleton } from '../components/common/SkeletonLoader';
 import { spacing, fontSizes, fonts, borderRadius } from '../constants';
+import { Api } from '../api';
 
 type NotifType = 'booking' | 'message' | 'payment' | 'offer' | 'review' | 'reminder';
 
@@ -53,6 +54,28 @@ const COLOR_MAP: Record<NotifType, string> = {
   reminder: '#7C3AED',
 };
 
+// Map a backend notification row → the display shape.
+function mapBackendNotif(n: any): Notification {
+  const code = n?.payload?.code ? ` (${n.payload.code})` : '';
+  const since = (() => {
+    const ms = Date.now() - new Date(n.created_at || Date.now()).getTime();
+    const m = Math.floor(ms / 60000); if (m < 1) return 'just now'; if (m < 60) return `${m} min ago`;
+    const h = Math.floor(m / 60); if (h < 24) return `${h} hr ago`; return `${Math.floor(h / 24)} d ago`;
+  })();
+  const t: string = n.type || '';
+  const map: Record<string, { type: NotifType; title: string; body: string }> = {
+    'booking.confirmed': { type: 'booking', title: 'Booking confirmed!', body: `Your booking${code} is confirmed.` },
+    'booking.request': { type: 'booking', title: 'New booking request', body: `A guest requested to book${code}.` },
+    'booking.accept': { type: 'booking', title: 'Booking accepted', body: `Your stay${code} was accepted by the host.` },
+    'booking.decline': { type: 'booking', title: 'Booking declined', body: `Your request${code} was declined.` },
+    'booking.checkout': { type: 'reminder', title: 'Checkout complete', body: `Checkout recorded for${code}.` },
+    'kyc.verified': { type: 'reminder', title: 'Identity verified', body: 'Your identity has been verified.' },
+    'kyc.rejected': { type: 'reminder', title: 'Identity review', body: 'Your identity submission needs another look.' },
+  };
+  const d = map[t] || { type: (t.startsWith('message') ? 'message' : t.startsWith('review') ? 'review' : 'reminder') as NotifType, title: t || 'Update', body: 'You have a new update.' };
+  return { id: String(n.id), type: d.type, title: d.title, body: d.body, time: since, read: !!n.read };
+}
+
 export function NotificationCenterScreen({ navigation }: any) {
   const { colors } = useTheme();
   const { light } = useHaptics();
@@ -60,10 +83,22 @@ export function NotificationCenterScreen({ navigation }: any) {
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Brief skeleton on mount so the list never flashes blank.
+  // Load REAL notifications from the backend; fall back to the demo list when
+  // offline or when the account has none yet (so the screen is never blank).
   useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(t);
+    let active = true;
+    (async () => {
+      try {
+        await Api.auth.ensureSession();
+        const r: any = await Api.notifications();
+        const items = (r?.items || []).map(mapBackendNotif);
+        if (active && items.length) setNotifications(items);
+        Api.markNotificationsRead().catch(() => {});
+      } catch { /* offline → keep demo list */ }
+      finally { if (active) setIsLoading(false); }
+    })();
+    const t = setTimeout(() => { if (active) setIsLoading(false); }, 800);
+    return () => { active = false; clearTimeout(t); };
   }, []);
 
   const FILTERS = ['All', 'Unread', 'Bookings', 'Messages', 'Offers'];

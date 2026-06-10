@@ -23,6 +23,7 @@ import { spacing, borderRadius, fontSizes, fonts } from '../constants';
 import { respond, createContext, resetContext, recommendLive, BotContext } from '../services/stayBotEngine';
 import { BotStay, botStayToProperty } from '../data/stays';
 import { loadApiKey, setApiKey, getApiKey, isLLMEnabled, getLLMAgentReply, ChatTurn } from '../services/aiProvider';
+import { isFeatureEnabled } from '../services/featureFlags';
 
 interface Message {
   id: string;
@@ -180,7 +181,7 @@ export function StayBotScreen({ navigation }: any) {
     const { ctx, reply } = respond(ctxRef.current, trimmed);
     ctxRef.current = ctx;
 
-    if (isLLMEnabled()) {
+    if (isLLMEnabled() && isFeatureEnabled('staybot_ai')) {
       // Smart mode: Claude runs as a real agent — it decides what to search for,
       // filters the catalog via tool-use, and replies about the results. The
       // stay cards it chose are shown; falls back to the local engine on error.

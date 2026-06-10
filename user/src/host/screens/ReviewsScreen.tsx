@@ -10,6 +10,7 @@ import { fonts, fontSizes, spacing, borderRadius, letterSpacing } from '../const
 import { withOpacity } from '../utils/color';
 import { ScreenHeader } from '../components/common';
 import { getGuestReviews, respondToReview, getHostToGuest, avgRating, type GuestReview } from '../data/hostReviews';
+import { Api } from '../../api';
 import { getReservations, type HostReservation } from '../data/reservations';
 import { buildReviewIntel } from '../services/reviewInsights';
 
@@ -28,6 +29,19 @@ export function ReviewsScreen({ navigation }: any) {
       const [gr, res, h2g] = await Promise.all([getGuestReviews(), getReservations(), getHostToGuest()]);
       if (!active) return;
       setReviews(gr);
+      // Prefer REAL backend reviews about this host's stays (cross-device).
+      (async () => {
+        try {
+          await Api.auth.ensureSession();
+          const r: any = await Api.reviews.forHost();
+          const live = (r?.items || []).map((rv: any) => ({
+            id: String(rv.id), guestName: rv.authorName || 'Guest', guestAvatar: `https://i.pravatar.cc/150?u=${rv.id}`,
+            listingTitle: rv.listingTitle || 'Your stay', rating: rv.rating || 5, text: rv.text || '',
+            date: rv.createdAt ? new Date(rv.createdAt).toLocaleDateString() : '', response: rv.response || undefined,
+          }));
+          if (active && live.length) setReviews(live);
+        } catch { /* offline → local */ }
+      })();
       const reviewed = new Set(h2g.map((r) => r.reservationId));
       setToReview(res.filter((r) => r.status === 'completed' && !reviewed.has(r.id)));
     })();
@@ -41,10 +55,13 @@ export function ReviewsScreen({ navigation }: any) {
   const submitResponse = async (id: string) => {
     if (!responseText.trim()) return;
     success();
-    const next = await respondToReview(id, responseText.trim());
+    const text = responseText.trim();
+    const next = await respondToReview(id, text);
     setReviews(next);
     setRespondingId(null);
     setResponseText('');
+    // Mirror the reply to the backend so guests see it across devices.
+    try { await Api.auth.ensureSession(); await Api.reviews.respond(id, text); } catch { /* offline — local saved */ }
   };
 
   return (

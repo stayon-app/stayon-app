@@ -2,6 +2,25 @@
 // AsyncStorage. Mirrors the guest booking shape, from the host's perspective.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import dayjs from 'dayjs';
+import { Api } from '../../api';
+
+// Map a backend reservation → the host reservation shape (0% fee → host keeps
+// the full rate; taxes are display-only at 12%).
+function beToHostReservation(r: any): HostReservation {
+  const nights = r.nights || 1;
+  const subtotal = Math.round((r.rateUSD || 0) * nights);
+  const taxes = Math.round(subtotal * 0.12);
+  return {
+    id: String(r.id), code: r.code, listingId: String(r.listingId || ''), listingTitle: r.listingTitle || 'Your stay',
+    image: '', guestName: r.guestName || 'Guest',
+    checkIn: r.checkIn ? dayjs(r.checkIn).format('MMM D, YYYY') : '',
+    checkOut: r.checkOut ? dayjs(r.checkOut).format('MMM D, YYYY') : '',
+    nights, guests: 1, subtotal, cleaningFee: 0, taxes, total: subtotal + taxes, payout: subtotal,
+    status: r.status as ReservationStatus, instant: !!r.instant,
+    createdAt: r.createdAt ? new Date(r.createdAt).getTime() : Date.now(),
+  };
+}
 
 export type ReservationStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
@@ -84,12 +103,25 @@ export const SEED_RESERVATIONS: HostReservation[] = [
 ];
 
 export async function getReservations(): Promise<HostReservation[]> {
+  // 1) Local (seed/cached) baseline.
+  let local: HostReservation[] = SEED_RESERVATIONS;
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    if (raw) { const p = JSON.parse(raw); if (Array.isArray(p)) return p; }
+    if (raw) { const p = JSON.parse(raw); if (Array.isArray(p)) local = p; }
+    else await AsyncStorage.setItem(KEY, JSON.stringify(SEED_RESERVATIONS)).catch(() => {});
   } catch {}
-  await AsyncStorage.setItem(KEY, JSON.stringify(SEED_RESERVATIONS)).catch(() => {});
-  return SEED_RESERVATIONS;
+  // 2) Merge REAL backend reservations on top (authoritative by code) so
+  //    Reservations + Earnings + Payouts reflect actual bookings cross-device.
+  try {
+    await Api.auth.ensureSession();
+    const r: any = await Api.reservations.mine();
+    const live: HostReservation[] = (r?.items || []).map(beToHostReservation);
+    if (live.length) {
+      const codes = new Set(live.map((x) => x.code));
+      return [...live, ...local.filter((x: HostReservation) => !codes.has(x.code))];
+    }
+  } catch { /* offline → local only */ }
+  return local;
 }
 
 // Reverse bridge: when the host changes a reservation, mirror it onto the guest's
