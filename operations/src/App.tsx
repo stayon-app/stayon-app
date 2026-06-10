@@ -16,29 +16,102 @@ export default function App() {
   return <Shell staff={staff} theme={theme} onToggleTheme={toggleTheme} onLogout={() => { OpsApi.logout(); localStorage.removeItem('ops_staff'); setStaff(null); }} />;
 }
 
-// ───────────────────────── Login ─────────────────────────
+// ───────────────────────── Login (split-screen) ─────────────────────────
 function Login({ onLogin, theme, onToggleTheme }: { onLogin: (s: Staff) => void; theme: string; onToggleTheme: () => void }) {
+  const [mode, setMode] = useState<'login' | 'forgot'>('login');
   const [email, setEmail] = useState('ops@stayon.com');
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [notice, setNotice] = useState('');
+
   const submit = async () => {
+    if (!email.trim()) { setErr('Enter your User ID.'); return; }
+    if (!password) { setErr('Enter your password.'); return; }
     setBusy(true); setErr('');
-    try { const s = await OpsApi.login(email.trim(), ''); onLogin(s); }
+    try { const s = await OpsApi.login(email.trim(), password); onLogin(s); }
     catch (e: any) { setErr(e?.message || 'Login failed — is the backend running on :4000?'); }
     finally { setBusy(false); }
   };
+  const requestReset = () => {
+    setErr('');
+    if (!email.trim()) { setErr('Enter your User ID first.'); return; }
+    setNotice(`A password-reset request for “${email.trim()}” has been logged. Your StayOn super-admin will issue you a new password.`);
+  };
+
   return (
-    <div className="login">
-      <div className="login-card">
-        <h1>StayOn <span style={{ color: 'var(--teal)' }}>Ops</span></h1>
-        <p>Operations control center — staff sign in.</p>
-        <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="staff email" onKeyDown={(e) => e.key === 'Enter' && submit()} />
-        <button className="btn" onClick={submit} disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        {err && <p className="err">{err}</p>}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
-          <span className="muted">Seed admin: <b>ops@stayon.com</b></span>
-          <button className="a" onClick={onToggleTheme}>{theme === 'dark' ? '☀ Light' : '🌙 Dark'}</button>
+    <div className="auth">
+      {/* LEFT — animated app name (splash-style move-in) */}
+      <div className="auth-brand">
+        <div className="auth-brand-content">
+          <div className="auth-logo"><span className="dot">🛡️</span> StayOn</div>
+          <h1 className="auth-appname">
+            <span className="aw" style={{ animationDelay: '.10s' }}>StayOn</span>
+            <span className="aw" style={{ animationDelay: '.26s' }}>Operations</span>
+            <span className="aw em" style={{ animationDelay: '.42s' }}>Dashboard</span>
+          </h1>
         </div>
+        <div className="auth-brand-foot">© 2026 StayOn · Internal staff only</div>
+      </div>
+
+      {/* RIGHT — login / forgot-password */}
+      <div className="auth-panel">
+        <button className="auth-theme" onClick={onToggleTheme}>{theme === 'dark' ? '☀ Light' : '🌙 Dark'}</button>
+
+        {mode === 'login' ? (
+          <div className="auth-form">
+            <div className="auth-kicker">Operations Team</div>
+            <h2>Sign in</h2>
+            <p className="auth-form-sub">Use your operations User ID and password.</p>
+
+            <label className="field">
+              <span>User ID</span>
+              <input className="input" type="email" autoFocus value={email}
+                onChange={(e) => setEmail(e.target.value)} placeholder="you@stayon.com"
+                onKeyDown={(e) => e.key === 'Enter' && submit()} />
+            </label>
+
+            <label className="field">
+              <div className="field-label-row">
+                <span>Password</span>
+                <button type="button" className="link" onClick={() => { setMode('forgot'); setErr(''); setNotice(''); }}>Forgot password?</button>
+              </div>
+              <div className="field-pw">
+                <input className="input" type={show ? 'text' : 'password'} value={password}
+                  onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                  onKeyDown={(e) => e.key === 'Enter' && submit()} />
+                <button type="button" className="reveal" onClick={() => setShow((s) => !s)}>{show ? 'Hide' : 'Show'}</button>
+              </div>
+            </label>
+
+            <button className="btn" onClick={submit} disabled={busy}>
+              {busy ? <><span className="spinner" />Signing in…</> : 'Sign in →'}
+            </button>
+            {err && <p className="err">{err}</p>}
+
+            <div className="auth-hint">Demo · User ID <b>ops@stayon.com</b> · password <b>stayon</b></div>
+          </div>
+        ) : (
+          <div className="auth-form">
+            <div className="auth-kicker">Password help</div>
+            <h2>Reset password</h2>
+            <p className="auth-form-sub">Enter your operations User ID and we’ll notify your administrator to issue a new password.</p>
+
+            <label className="field">
+              <span>User ID</span>
+              <input className="input" type="email" autoFocus value={email}
+                onChange={(e) => setEmail(e.target.value)} placeholder="you@stayon.com"
+                onKeyDown={(e) => e.key === 'Enter' && requestReset()} />
+            </label>
+
+            <button className="btn" onClick={requestReset}>Request password reset</button>
+            {err && <p className="err">{err}</p>}
+            {notice && <p className="notice">{notice}</p>}
+
+            <button type="button" className="link back" onClick={() => { setMode('login'); setErr(''); setNotice(''); }}>← Back to sign in</button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -59,7 +132,7 @@ function Shell({ staff, onLogout, theme, onToggleTheme }: { staff: Staff; onLogo
   return (
     <div className="shell">
       <aside className="side">
-        <div className="brand">StayOn <small>Ops</small></div>
+        <div className="brand"><span className="brand-mark">🛡️</span> StayOn <small>Ops</small></div>
         <nav className="nav">
           {groups.map(([group, mods]) => {
             const isOpen = open.has(group);
@@ -81,7 +154,8 @@ function Shell({ staff, onLogout, theme, onToggleTheme }: { staff: Staff; onLogo
       <main className="main">
         <div className="topbar">
           <h2>{current?.label}</h2>
-          <div className="who">Signed in as <b>{staff.name}</b> · {staff.role}
+          <div className="who">
+            <span className="who-name"><span className="who-av">{(staff.name || 'S')[0]}</span><b>{staff.name}</b> · {staff.role}</span>
             <button onClick={async () => { const p = window.prompt('Set your personal step-up PIN (4–6 digits):'); if (p) { try { await OpsApi.setMyPin(p); alert('PIN set ✓'); } catch (e: any) { alert(e.message); } } }}>Set PIN</button>
             <button onClick={async () => {
               try {
@@ -307,13 +381,16 @@ function Dashboard({ modules, go }: { modules: Mod[]; go: (k: ModuleKey) => void
       )}
 
       {/* clickable category boxes */}
-      <p className="muted" style={{ margin: '0 0 12px' }}>Choose an area to work in</p>
+      <div className="sec-head"><h3>Choose an area to work in</h3><span className="sec-line" /></div>
       <div className="tilegrid">
         {groups.map(([group, mods]) => {
           const meta = GROUP_META[group] || { icon: '◆', blurb: '', color: '#6366f1' };
           return (
             <div className="tile" key={group} onClick={() => go(mods[0].key)}>
-              <div className="tile-icon" style={{ background: meta.color + '22', color: meta.color }}>{meta.icon}</div>
+              <div className="tile-head">
+                <div className="tile-icon" style={{ background: meta.color + '22', color: meta.color }}>{meta.icon}</div>
+                <span className="tile-go">→</span>
+              </div>
               <div className="tile-title">{group}</div>
               <div className="tile-blurb">{meta.blurb}</div>
               <div className="tile-mods">

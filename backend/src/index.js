@@ -139,8 +139,18 @@ app.post('/v1/auth/login', wrap(async (req, res) => {
 }));
 
 app.post('/v1/ops/auth/login', wrap(async (req, res) => {
-  const member = await one('staff', { email: req.body?.email });
+  const member = await one('staff', { email: (req.body?.email || '').trim().toLowerCase() })
+    || await one('staff', { email: req.body?.email });
   if (!member) return err(res, 'STAFF', 'unknown staff email', 401);
+  if (member.active === false) return err(res, 'AUTH', 'this staff account is disabled', 403);
+  // Real password check. Prefer the staff member's own password (if the column
+  // exists / is set), otherwise the shared OPS_PASSWORD (default 'stayon').
+  const supplied = String(req.body?.password ?? '');
+  const expected = (member.password != null && member.password !== '')
+    ? String(member.password)
+    : (process.env.OPS_PASSWORD || 'stayon');
+  if (supplied !== expected) return err(res, 'AUTH', 'incorrect email or password', 401);
+  await audit(req, 'ops.login', 'staff', member.id, { email: member.email }).catch(() => {});
   ok(res, { accessToken: sign({ sub: member.id, kind: 'staff', role: member.role, name: member.name }), staff: member });
 }));
 
