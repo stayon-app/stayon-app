@@ -3,7 +3,7 @@
 StayOn is an Airbnb-style marketplace with **zero commission** (hosts keep 100%). Guest,
 host, and operations all run on **one shared backend + one database**.
 
-> 📖 **Full developer documentation:** see **[STAYON_DOCUMENTATION.md](STAYON_DOCUMENTATION.md)**
+> 📖 **Full developer documentation:** see **[STAYON_DOCUMENTATION.md](docs/STAYON_DOCUMENTATION.md)**
 > (architecture, tech stack, every module, feature flows, setup). This README is the quick start.
 
 ---
@@ -14,7 +14,7 @@ host, and operations all run on **one shared backend + one database**.
 |---|---|
 | **`user/`** | The Expo app — **guest + host in one** (host code lives in `user/src/host/`). Guest⇄host via a mode switch. |
 | **`backend/`** | The all-in-one Node/Express API for user + host + ops, backed by Supabase. |
-| **`*.md`** | Planning & design docs (vision, backend plan, schema/API, ops portal, production plan). |
+| **`docs/`** | Planning & design docs (vision, backend plan, schema/API, ops portal, production plan). |
 
 ## Tech stack
 
@@ -82,4 +82,4 @@ backend/supabase/
 ```
 
 For everything else — every endpoint, table, context, and feature flow — read
-**[STAYON_DOCUMENTATION.md](STAYON_DOCUMENTATION.md)**.
+**[STAYON_DOCUMENTATION.md](docs/STAYON_DOCUMENTATION.md)**.

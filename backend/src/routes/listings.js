@@ -1,0 +1,191 @@
+const express = require('express');
+const router = express.Router();
+const { authUser } = require('../auth');
+const {
+  sb,
+  insertRow,
+  updateByMatch,
+  rows,
+  one,
+  wrap,
+  ok,
+  err,
+  listingOut,
+  reviewOut,
+  effectiveNightly,
+  nightlyForGuestsRow,
+  distKm
+} = require('../utils/helpers');
+
+const listingIn = (b) => ({
+  title: b.title,
+  type: b.type,
+  place_type: b.placeType,
+  description: b.description,
+  address: b.address,
+  city: b.city,
+  state: b.state,
+  country: b.country,
+  zipcode: b.zipcode,
+  lat: b.lat,
+  lng: b.lng,
+  guests: b.guests,
+  bedrooms: b.bedrooms,
+  beds: b.beds,
+  bathrooms: b.bathrooms,
+  price_usd: b.priceUSD,
+  weekend_price_usd: b.weekendPriceUSD,
+  cleaning_fee_usd: b.cleaningFeeUSD,
+  images: b.images || [],
+  amenities: b.amenities || [],
+  vibes: b.vibes || [],
+  highlights: b.highlights || [],
+  instant_book: !!b.instantBook,
+  extra: {
+    houseRules: b.houseRules || null,
+    petsAllowed: b.petsAllowed ?? b.houseRules?.pets ?? null,
+    cancellation: b.cancellation || null,
+    checkIn: b.checkIn || null,
+    checkOut: b.checkOut || null,
+    minNights: b.minNights || null,
+    safety: b.safety || [],
+    baseGuests: b.baseGuests || null,
+    extraGuestPct: b.extraGuestPct || 0,
+    languages: b.hostLanguages || [],
+  },
+});
+
+router.post('/listings', authUser, wrap(async (req, res) => {
+  const status = req.body.publish ? 'published' : 'draft';
+  const payload = { ...listingIn(req.body), host_id: req.auth.sub, host_name: req.auth.name, status };
+  let l;
+  try {
+    l = await insertRow('listings', payload);
+  } catch (e) {
+    if (String(e.message || '').includes('extra')) {
+      const { extra, ...rest } = payload;
+      l = await insertRow('listings', rest);
+    } else throw e;
+  }
+  ok(res, { id: l.id, status: l.status });
+}));
+
+router.post('/listings/:id/submit', authUser, wrap(async (req, res) => {
+  const upd = await updateByMatch('listings', { id: req.params.id, host_id: req.auth.sub }, { status: 'pending_review' });
+  if (!upd.length) return err(res, 'NOTFOUND', 'listing not found', 404);
+  ok(res, { id: req.params.id, status: 'pending_review' });
+}));
+
+router.get('/listings', authUser, wrap(async (req, res) =>
+  ok(res, { items: (await rows('listings', { host_id: req.auth.sub })).map(listingOut) })));
+
+router.get('/listings/:id', wrap(async (req, res) => {
+  const l = await one('listings', { id: req.params.id });
+  if (!l) return err(res, 'NOTFOUND', 'listing not found', 404);
+  const reviews = (await rows('reviews', { listing_id: l.id })).filter((r) => !r.removed).map(reviewOut);
+  ok(res, { ...listingOut(l), reviews });
+}));
+
+router.get('/search', wrap(async (req, res) => {
+  let q = sb.from('listings').select('*').eq('status', 'published');
+  const rawTerm = String(req.query.q || req.query.city || '');
+  if (rawTerm.trim()) {
+    const tokens = rawTerm
+      .split(',')
+      .map((t) => t.replace(/[%,()]/g, '').trim())
+      .filter((t) => t.length >= 2)
+      .slice(0, 3);
+    if (tokens.length) {
+      const fields = ['city', 'state', 'country', 'address', 'title', 'zipcode'];
+      const tok = tokens[0];
+      q = q.or(fields.map((f) => `${f}.ilike.%${tok}%`).join(','));
+    }
+  }
+  if (req.query.guests) q = q.gte('guests', Number(req.query.guests));
+  if (req.query.maxPrice) q = q.lte('price_usd', Number(req.query.maxPrice));
+  if (req.query.minPrice) q = q.gte('price_usd', Number(req.query.minPrice));
+  if (req.query.type) q = q.ilike('type', `%${req.query.type}%`);
+  if (req.query.instant === 'true') q = q.eq('instant_book', true);
+  const { data, error } = await q;
+  if (error) throw error;
+  let items = (data || []).map(listingOut);
+
+  if (req.query.amenities) {
+    const want = String(req.query.amenities).split(',').map((a) => a.trim()).filter(Boolean);
+    if (want.length) items = items.filter((l) => want.every((a) => (l.amenities || []).includes(a)));
+  }
+  if (Number(req.query.pets) > 0 || req.query.pets === 'true') {
+    items = items.filter((l) => l.petsAllowed === true);
+  }
+  if (req.query.languages) {
+    const want = String(req.query.languages).split(',').map((s) => s.trim()).filter(Boolean);
+    if (want.length) items = items.filter((l) => want.every((lang) => (l.hostLanguages || []).includes(lang)));
+  }
+  if (req.query.guests) {
+    const g = Number(req.query.guests);
+    items = items.map((l) => ({ ...l, basePriceUSD: l.priceUSD, priceUSD: effectiveNightly(l, g) }));
+  }
+
+  const ci = req.query.checkIn, co = req.query.checkOut;
+  if (ci && co) {
+    const ids = items.map((l) => l.id);
+    if (ids.length) {
+      const { data: bks } = await sb.from('bookings').select('listing_id,check_in,check_out,status').in('listing_id', ids);
+      const overlaps = (a1, a2, b1, b2) => a1 < b2 && b1 < a2;
+      const booked = new Set((bks || [])
+        .filter((b) => b.status !== 'cancelled' && b.check_in && b.check_out && overlaps(b.check_in, b.check_out, ci, co))
+        .map((b) => b.listing_id));
+      const { data: cal } = await sb.from('calendar').select('listing_id,day,blocked').in('listing_id', ids).gte('day', ci).lt('day', co).eq('blocked', true);
+      (cal || []).forEach((c) => booked.add(c.listing_id));
+      items = items.filter((l) => !booked.has(l.id));
+    }
+  }
+  const lat = parseFloat(req.query.lat), lng = parseFloat(req.query.lng);
+  if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+    const radius = Number(req.query.radius) || 50;
+    items = items
+      .filter((l) => l.lat != null && l.lng != null)
+      .map((l) => ({ ...l, distanceKm: Math.round(distKm(lat, lng, l.lat, l.lng) * 10) / 10 }))
+      .filter((l) => l.distanceKm <= radius)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+  ok(res, { results: items, total: items.length });
+}));
+
+router.put('/listings/:id', authUser, wrap(async (req, res) => {
+  const l = await one('listings', { id: req.params.id });
+  if (!l) return err(res, 'NOTFOUND', 'listing not found', 404);
+  if (l.host_id !== req.auth.sub) return err(res, 'FORBIDDEN', 'not your listing', 403);
+  const patch = listingIn(req.body);
+  const sent = (k) => Object.prototype.hasOwnProperty.call(req.body, k);
+  if (!sent('amenities')) delete patch.amenities;
+  if (!sent('vibes')) delete patch.vibes;
+  if (!sent('highlights')) delete patch.highlights;
+  if (!sent('images')) delete patch.images;
+  const newExtra = {};
+  for (const [k, v] of Object.entries(patch.extra || {})) {
+    if (v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0)) newExtra[k] = v;
+  }
+  patch.extra = { ...(l.extra || {}), ...newExtra };
+  if (req.body.publish !== undefined) patch.status = req.body.publish ? 'published' : (l.status || 'draft');
+  const { error } = await sb.from('listings').update(patch).eq('id', req.params.id);
+  if (error && /extra/.test(error.message || '')) {
+    const { extra, ...rest } = patch;
+    const { error: e2 } = await sb.from('listings').update(rest).eq('id', req.params.id);
+    if (e2) throw e2;
+  } else if (error) throw error;
+  ok(res, { id: req.params.id, status: patch.status || l.status });
+}));
+
+router.get('/listings/:id/quote', wrap(async (req, res) => {
+  const l = await one('listings', { id: req.params.id });
+  if (!l) return err(res, 'NOTFOUND', 'listing not found', 404);
+  const nights = Math.max(1, Math.round((new Date(req.query.checkOut) - new Date(req.query.checkIn)) / 86400000) || 1);
+  const guests = Number(req.query.guests) || (l.extra?.baseGuests || 1);
+  const nightly = nightlyForGuestsRow(l, guests);
+  const subtotal = nightly * nights, cleaning = l.cleaning_fee_usd || 0;
+  const taxes = Math.round((subtotal + cleaning) * TAX_RATE);
+  ok(res, { nights, nightlyUSD: nightly, baseNightlyUSD: l.price_usd || 0, subtotalUSD: subtotal, cleaningUSD: cleaning, taxesUSD: taxes, platformFeeUSD: 0, totalUSD: subtotal + cleaning + taxes });
+}));
+
+module.exports = router;
