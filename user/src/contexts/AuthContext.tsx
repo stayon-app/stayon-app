@@ -1,20 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Api } from '../api';
-import { setToken } from '../api/client';
-
-// Establish a backend session keyed by a stable identifier (phone or email) so
-// the SAME person is one backend account across devices and guest/host modes.
-// Returns the backend userId. Fail-safe (returns null if the server is offline).
-async function backendLogin(identifier: string, name?: string, countryCode?: string): Promise<string | null> {
-  try {
-    const r = await Api.auth.login(identifier, name, countryCode);
-    await setToken(r.accessToken);
-    return r.user?.id ?? null;
-  } catch {
-    return null;
-  }
-}
+import { setTokens, clearTokens, getToken } from '../api/client';
 
 interface User {
   id: string;
@@ -25,13 +12,26 @@ interface User {
   countryCode?: string;  // ISO, e.g. "IN" — drives currency & formats
 }
 
+interface SendOtpResult {
+  message: string;
+  expiresIn: number;
+  devCode?: string;
+}
+
+interface VerifyOtpResult {
+  user: User;
+  isNewUser: boolean;
+}
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, phone?: string) => Promise<void>;
-  /** Phone-number sign-in shared across guest & host modes. */
+  /** Send an OTP to the given phone number. */
+  sendOtp: (phone: string, dialCode: string, countryCode: string) => Promise<SendOtpResult>;
+  /** Verify an OTP code. Returns { user, isNewUser }. */
+  verifyOtp: (phone: string, code: string) => Promise<VerifyOtpResult>;
+  /** Phone-number sign-in shared across guest & host modes (backward compat). */
   loginWithPhone: (phone: string, dialCode: string, countryCode: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuthBeforeAction: (action: () => void, navigation: any) => void;
@@ -45,16 +45,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for saved auth on app start
+  // Check for saved auth on app start — load tokens from secure store & validate via /me
   useEffect(() => {
     checkSavedAuth();
   }, []);
 
   const checkSavedAuth = async () => {
     try {
-      const savedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
+      const token = await getToken();
+      if (token) {
+        try {
+          // Validate with the server
+          const serverUser = await Api.auth.me();
+          const u: User = {
+            id: serverUser.id,
+            email: serverUser.email,
+            name: serverUser.name,
+            phone: serverUser.phone,
+            dialCode: serverUser.dialCode,
+            countryCode: serverUser.countryCode,
+          };
+          await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(u));
+          setUser(u);
+        } catch {
+          // Token invalid / server offline — try cached user
+          const savedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+          if (savedUser) {
+            setUser(JSON.parse(savedUser));
+          } else {
+            // No cached user and token failed — clear
+            await clearTokens();
+          }
+        }
+      } else {
+        // No token — check for cached user data
+        const savedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
+        if (savedUser) {
+          setUser(JSON.parse(savedUser));
+        }
       }
     } catch (error) {
       console.error('Error checking saved auth:', error);
@@ -63,48 +91,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (email: string, password: string) => {
-    try {
-      const name = email.split('@')[0];
-      const beId = await backendLogin(email, name);
-      const mockUser: User = { id: beId || '1', email, name };
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockUser));
-      setUser(mockUser);
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
+  const sendOtp = async (phone: string, dialCode: string, countryCode: string): Promise<SendOtpResult> => {
+    const fullPhone = `${dialCode}${phone.replace(/[^0-9]/g, '')}`;
+    const res = await Api.auth.sendOtp(fullPhone, countryCode);
+    return {
+      message: res.message,
+      expiresIn: res.expiresIn,
+      devCode: res.devCode,
+    };
   };
 
-  const signup = async (email: string, password: string, phone?: string) => {
-    try {
-      const name = email.split('@')[0];
-      const beId = await backendLogin(phone || email, name);
-      const mockUser: User = { id: beId || Date.now().toString(), email, name, phone };
-      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockUser));
-      setUser(mockUser);
-    } catch (error) {
-      console.error('Signup error:', error);
-      throw error;
-    }
+  const verifyOtp = async (phone: string, code: string): Promise<VerifyOtpResult> => {
+    const res = await Api.auth.verifyOtp(phone, code);
+    // Store tokens securely
+    await setTokens(res.accessToken, res.refreshToken);
+    // Build user object
+    const u: User = {
+      id: res.user.id,
+      email: res.user.email,
+      name: res.user.name,
+      phone: res.user.phone,
+      dialCode: res.user.dialCode,
+      countryCode: res.user.countryCode,
+    };
+    await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(u));
+    setUser(u);
+    return { user: u, isNewUser: res.isNewUser };
   };
 
+  /** Backward-compatible phone login for HostLoginScreen etc. */
   const loginWithPhone = async (phone: string, dialCode: string, countryCode: string) => {
-    const fullPhone = `${dialCode || ''}${phone}`;
-    const beId = await backendLogin(fullPhone, 'You', countryCode);
-    const mockUser: User = { id: beId || Date.now().toString(), phone, dialCode, countryCode, name: 'You' };
-    await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockUser));
-    setUser(mockUser);
+    // In the new OTP flow this is a two-step process. For backward compat with
+    // host screens that call loginWithPhone directly, we send + verify with a
+    // dev code. In production the host flow should also use sendOtp + verifyOtp.
+    const fullPhone = `${dialCode}${phone.replace(/[^0-9]/g, '')}`;
+    const otpRes = await Api.auth.sendOtp(fullPhone, countryCode);
+    const devCode = otpRes.devCode || '000000';
+    const res = await Api.auth.verifyOtp(fullPhone, devCode);
+    await setTokens(res.accessToken, res.refreshToken);
+    const u: User = {
+      id: res.user.id,
+      email: res.user.email,
+      name: res.user.name,
+      phone,
+      dialCode,
+      countryCode,
+    };
+    await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(u));
+    setUser(u);
   };
 
   const logout = async () => {
     try {
+      await Api.auth.logout(); // calls signOut which clears tokens + calls backend
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
-      await setToken(null); // clear backend session too
       setUser(null);
     } catch (error) {
+      // Even on error, clear local state
+      await clearTokens();
+      await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+      setUser(null);
       console.error('Logout error:', error);
-      throw error;
     }
   };
 
@@ -127,8 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         isAuthenticated: !!user,
         isLoading,
-        login,
-        signup,
+        sendOtp,
+        verifyOtp,
         loginWithPhone,
         logout,
         checkAuthBeforeAction,

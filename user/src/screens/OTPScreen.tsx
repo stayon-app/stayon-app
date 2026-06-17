@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   ImageBackground,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { fontSizes, fonts, spacing, borderRadius } from '../constants';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,9 +29,13 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { phoneOrEmail: rawPhoneOrEmail, returnAction, countryCode, dialCode } = route?.params || {};
+  const { phoneOrEmail: rawPhoneOrEmail, phone: rawPhone, returnAction, countryCode, dialCode } = route?.params || {};
   const phoneOrEmail = rawPhoneOrEmail != null ? String(rawPhoneOrEmail) : '';
-  const { login } = useAuth();
+  // Full phone with dial code for API calls
+  const fullPhone = dialCode && rawPhone
+    ? `${dialCode}${String(rawPhone).replace(/[^0-9]/g, '')}`
+    : phoneOrEmail;
+  const { verifyOtp, sendOtp } = useAuth();
   const { setCurrencyByCountry, setCurrencyByDialCode } = useCurrency();
   const { light } = useHaptics();
   const { height } = useWindowDimensions();
@@ -38,11 +43,21 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const inputRefs = useRef<Array<TextInput | null>>([]);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   useEffect(() => {
     // Entrance animation
@@ -64,12 +79,27 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
     setTimeout(() => {
       inputRefs.current[0]?.focus();
     }, 300);
+
+    // Send OTP when screen mounts
+    const nationalNumber = rawPhone ? String(rawPhone).replace(/[^0-9]/g, '') : '';
+    if (nationalNumber && dialCode && countryCode) {
+      sendOtp(nationalNumber, dialCode, countryCode)
+        .then(() => setResendCooldown(60))
+        .catch((err: any) => {
+          if (err?.code === 'RATE_LIMITED' || err?.code === 'HTTP_429') {
+            Alert.alert('Too many requests', 'Please wait before requesting another code.');
+          } else {
+            // Non-blocking — user can still enter a code or resend
+            console.log('OTP send failed:', err?.message);
+          }
+        });
+    }
   }, []);
 
   const handleCodeChange = (text: string, index: number) => {
     // Accept digits only
     const digitsOnly = text.replace(/[^0-9]/g, '');
-    if (error) setError(false);
+    if (error) { setError(false); setErrorMessage(''); }
 
     if (digitsOnly.length > 1) {
       // Handle paste - accept any digit-only code
@@ -114,49 +144,77 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
   };
 
   const handleVerify = async (fullCode: string) => {
-    console.log('OTP entered:', fullCode);
-
     // Require a complete 6-digit numeric code
-    if (fullCode.length === 6 && /^[0-9]{6}$/.test(fullCode)) {
-      light();
-      try {
-        // Complete authentication
-        await login(phoneOrEmail, fullCode);
-
-        // Pick the display currency from the country the guest signed in with
-        // (e.g. an Indian +91 number -> INR; everyone else defaults to USD).
-        if (countryCode) {
-          setCurrencyByCountry(String(countryCode));
-        } else if (dialCode) {
-          setCurrencyByDialCode(String(dialCode));
-        }
-
-        // Navigate back to where the user came from or to main
-        if (returnAction) {
-          returnAction();
-        } else {
-          navigation.navigate('Main');
-        }
-      } catch (err) {
-        setError(true);
-        Alert.alert('Error', 'Failed to verify code. Please try again.');
-        setCode(['', '', '', '', '', '']);
-        inputRefs.current[0]?.focus();
-      }
-    } else {
+    if (fullCode.length !== 6 || !/^[0-9]{6}$/.test(fullCode)) {
       setError(true);
+      setErrorMessage('Enter the complete 6-digit code');
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
+      return;
+    }
+
+    if (isVerifying) return;
+    light();
+    setIsVerifying(true);
+
+    try {
+      // Verify OTP server-side
+      const result = await verifyOtp(fullPhone, fullCode);
+
+      // Pick the display currency from the country the guest signed in with
+      if (countryCode) {
+        setCurrencyByCountry(String(countryCode));
+      } else if (dialCode) {
+        setCurrencyByDialCode(String(dialCode));
+      }
+
+      // Navigate based on whether this is a new or returning user
+      if (result.isNewUser) {
+        navigation.navigate('AccountCreation', { returnAction });
+      } else if (returnAction) {
+        returnAction();
+      } else {
+        navigation.navigate('Main');
+      }
+    } catch (err: any) {
+      setError(true);
+      if (err?.code === 'INVALID_OTP') {
+        setErrorMessage('Invalid code. Please try again.');
+      } else if (err?.code === 'EXPIRED_OTP') {
+        setErrorMessage('Code expired. Request a new one.');
+      } else if (err?.code === 'MAX_ATTEMPTS') {
+        setErrorMessage('Too many attempts. Request a new code.');
+      } else {
+        setErrorMessage(err?.message || 'Verification failed. Please try again.');
+      }
+      setCode(['', '', '', '', '', '']);
+      inputRefs.current[0]?.focus();
+    } finally {
+      setIsVerifying(false);
     }
   };
 
-  const handleResend = () => {
-    // Simulate resend - clear, reset error and refocus
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
     light();
-    console.log('Resending code...');
     setError(false);
+    setErrorMessage('');
     setCode(['', '', '', '', '', '']);
     inputRefs.current[0]?.focus();
+
+    try {
+      const nationalNumber = rawPhone ? String(rawPhone).replace(/[^0-9]/g, '') : '';
+      if (nationalNumber && dialCode && countryCode) {
+        await sendOtp(nationalNumber, dialCode, countryCode);
+      }
+      setResendCooldown(60); // 60-second cooldown
+    } catch (err: any) {
+      if (err?.code === 'RATE_LIMITED' || err?.code === 'HTTP_429') {
+        Alert.alert('Too many requests', 'Please wait before requesting another code.');
+      } else {
+        Alert.alert('Error', err?.message || 'Failed to resend code.');
+      }
+    }
   };
 
   return (
@@ -241,16 +299,28 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
 
             {error && (
               <Text style={styles.errorText}>
-                Enter the complete 6-digit code
+                {errorMessage || 'Enter the complete 6-digit code'}
               </Text>
+            )}
+
+            {isVerifying && (
+              <ActivityIndicator size="small" color="#0D9488" style={{ marginBottom: 8 }} />
             )}
 
             {/* Resend */}
             <View style={styles.resendContainer}>
-              <Text style={styles.resendText}>Didn't receive it? </Text>
-              <TouchableOpacity onPress={handleResend}>
-                <Text style={styles.resendLink}>Request new code</Text>
-              </TouchableOpacity>
+              {resendCooldown > 0 ? (
+                <Text style={styles.resendText}>
+                  Resend code in {resendCooldown}s
+                </Text>
+              ) : (
+                <>
+                  <Text style={styles.resendText}>Didn't receive it? </Text>
+                  <TouchableOpacity onPress={handleResend}>
+                    <Text style={styles.resendLink}>Request new code</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </Animated.View>
         </View>
