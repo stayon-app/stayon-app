@@ -31,6 +31,8 @@ interface AuthContextType {
   sendOtp: (phone: string, dialCode: string, countryCode: string) => Promise<SendOtpResult>;
   /** Verify an OTP code. Returns { user, isNewUser }. */
   verifyOtp: (phone: string, code: string) => Promise<VerifyOtpResult>;
+  /** Update the current user's profile (name/email) after sign-up. */
+  updateProfile: (data: { name?: string; email?: string }) => Promise<void>;
   /** Phone-number sign-in shared across guest & host modes (backward compat). */
   loginWithPhone: (phone: string, dialCode: string, countryCode: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -119,6 +121,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { user: u, isNewUser: res.isNewUser };
   };
 
+  const updateProfile = async (data: { name?: string; email?: string }): Promise<void> => {
+    const updated = await Api.auth.updateProfile(data);
+    const u: User = {
+      id: updated.id,
+      email: updated.email,
+      name: updated.name,
+      phone: updated.phone,
+      dialCode: user?.dialCode,
+      countryCode: updated.countryCode ?? user?.countryCode,
+    };
+    await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(u));
+    setUser(u);
+  };
+
   /** Backward-compatible phone login for HostLoginScreen etc. */
   const loginWithPhone = async (phone: string, dialCode: string, countryCode: string) => {
     // In the new OTP flow this is a two-step process. For backward compat with
@@ -176,6 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         sendOtp,
         verifyOtp,
+        updateProfile,
         loginWithPhone,
         logout,
         checkAuthBeforeAction,

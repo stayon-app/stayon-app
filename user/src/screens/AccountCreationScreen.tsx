@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { STAYON_GRADIENT } from '../components/GradientButton';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useHaptics } from '../hooks/useHaptics';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,6 +31,8 @@ interface AccountCreationScreenProps {
 export const AccountCreationScreen: React.FC<AccountCreationScreenProps> = ({
   onAccountCreated,
   onBack,
+  navigation,
+  route,
 }) => {
   const [firstName, setFirstName] = useState('');
   const [surname, setSurname] = useState('');
@@ -37,9 +40,13 @@ export const AccountCreationScreen: React.FC<AccountCreationScreenProps> = ({
   const [email, setEmail] = useState('');
   const [focusedField, setFocusedField] = useState<string>('');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const { colors } = useTheme();
+  const { updateProfile } = useAuth();
   const { light } = useHaptics();
+  const returnAction = route?.params?.returnAction;
   const { height } = useWindowDimensions();
   const styles = makeStyles(colors, height);
 
@@ -78,14 +85,41 @@ export const AccountCreationScreen: React.FC<AccountCreationScreenProps> = ({
 
   const isFormValid = firstNameValid && surnameValid && emailValid;
 
-  const handleSubmit = () => {
+  const finish = () => {
+    if (onAccountCreated) return onAccountCreated();
+    if (returnAction) return returnAction();
+    navigation?.navigate('Main');
+  };
+
+  const handleBack = () => {
+    if (onBack) return onBack();
+    navigation?.goBack();
+  };
+
+  const handleSubmit = async () => {
     if (!isFormValid) {
       setTouched({ firstName: true, surname: true, email: true });
       return;
     }
+    if (submitting) return;
     light();
-    console.log('Account created:', { firstName, surname, dateOfBirth, email });
-    onAccountCreated?.();
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      await updateProfile({
+        name: `${firstName.trim()} ${surname.trim()}`.trim(),
+        email: email.trim(),
+      });
+      finish();
+    } catch (err: any) {
+      setSubmitError(
+        err?.code === 'EMAIL_IN_USE'
+          ? 'That email is already linked to another account.'
+          : err?.message || 'Could not save your details. Please try again.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -95,10 +129,10 @@ export const AccountCreationScreen: React.FC<AccountCreationScreenProps> = ({
     >
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} accessibilityLabel="Go back" accessibilityRole="button">
+        <TouchableOpacity style={styles.backButton} onPress={handleBack} accessibilityLabel="Go back" accessibilityRole="button">
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.closeButton} accessibilityLabel="Close" accessibilityRole="button">
+        <TouchableOpacity style={styles.closeButton} onPress={handleBack} accessibilityLabel="Close" accessibilityRole="button">
           <Ionicons name="close" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
@@ -255,21 +289,25 @@ export const AccountCreationScreen: React.FC<AccountCreationScreenProps> = ({
             acknowledge the <Text style={styles.termsLink}>Privacy Policy</Text>.
           </Text>
 
+          {submitError !== '' && <Text style={styles.errorText}>{submitError}</Text>}
+
           {/* Submit Button */}
           <TouchableOpacity
             onPress={handleSubmit}
             activeOpacity={0.9}
-            disabled={!isFormValid}
+            disabled={!isFormValid || submitting}
             accessibilityLabel="Agree and continue"
-            accessibilityState={{ disabled: !isFormValid }}
+            accessibilityState={{ disabled: !isFormValid || submitting }}
           >
             <LinearGradient
               colors={STAYON_GRADIENT}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={[styles.submitButton, !isFormValid && styles.submitButtonDisabled]}
+              style={[styles.submitButton, (!isFormValid || submitting) && styles.submitButtonDisabled]}
             >
-              <Text style={styles.submitButtonText}>Agree and continue</Text>
+              <Text style={styles.submitButtonText}>
+                {submitting ? 'Saving…' : 'Agree and continue'}
+              </Text>
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>

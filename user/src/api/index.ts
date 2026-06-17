@@ -34,6 +34,8 @@ export const Api = {
     logout: () => signOut(),
     /** Get the current authenticated user. */
     me: () => http.get('/me'),
+    /** Update the current user's profile (name/email). */
+    updateProfile: (data: { name?: string; email?: string }) => http.put('/me', data),
     ensureSession,
     signOut,
   },
