@@ -85,7 +85,7 @@ function check(name, cond, extra) {
   check('report resolved', (await post(`/ops/reports/${rep.id}/resolve`, { resolution: 'dismissed_ok' }, ops.accessToken)).body.status === 'resolved');
 
   console.log('\n== KYC submit → Ops verify ==');
-  await post('/identity/submit', { legalName: 'Asha R', idType: 'aadhaar' }, host.accessToken);
+  await post('/identity/submit', { legalName: 'Asha R', idType: 'aadhaar', idNumber: '1234-5678-9012', dob: '1990-01-01' }, host.accessToken);
   check('kyc in ops queue', (await get('/ops/queues/kyc', ops.accessToken)).body.items.length >= 1);
   check('kyc approved', (await post(`/ops/kyc/${host.user.id}/approve`, {}, ops.accessToken)).body.status === 'verified');
 
