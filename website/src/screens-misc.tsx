@@ -1,11 +1,11 @@
 import React from 'react';
-import { useApp, usd } from './store';
+import { useApp } from './store';
 import { Icon, GradientButton, StayCard } from './ui';
 import { STAYS } from './data';
 
 /* ───────────────────────── Trips ───────────────────────── */
 export function TripsScreen() {
-  const { bookings, navigate, user } = useApp();
+  const { bookings, navigate, user, money } = useApp();
   const fmt = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
@@ -14,7 +14,7 @@ export function TripsScreen() {
       {!user && <p className="muted page-sub">Log in to keep your trips across devices.</p>}
       {bookings.length === 0 ? (
         <div className="empty">
-          <div className="empty-ico">🧳</div>
+          <div className="empty-ico"><Icon name="briefcase" size={42} /></div>
           <h3>No trips yet</h3>
           <p>Time to dust off your bags and start planning your next adventure.</p>
           <GradientButton onClick={() => navigate('explore')}>Start exploring</GradientButton>
@@ -31,7 +31,7 @@ export function TripsScreen() {
                 </div>
                 <div className="muted"><Icon name="pin" size={13} /> {b.stay.location}</div>
                 <div className="muted">{fmt(b.checkIn)} – {fmt(b.checkOut)} · {b.nights} nights · {b.guests} guests</div>
-                <div className="trip-foot"><span className="muted">{b.code}</span><b>{usd(b.total)}</b></div>
+                <div className="trip-foot"><span className="muted">{b.code}</span><b>{money(b.total)}</b></div>
               </div>
             </article>
           ))}
@@ -43,7 +43,7 @@ export function TripsScreen() {
 
 /* ───────────────────────── Profile ───────────────────────── */
 export function ProfileScreen() {
-  const { user, navigate, logout, favs, bookings } = useApp();
+  const { user, navigate, logout, favs, bookings, enterHost, showToast } = useApp();
   const saved = STAYS.filter((s) => favs.has(s.id));
 
   if (!user) {
@@ -56,8 +56,8 @@ export function ProfileScreen() {
             <GradientButton onClick={() => navigate('auth')}>Log in or sign up</GradientButton>
           </div>
           <div className="perks">
-            {[['🧳', 'Your trips', 'Plan & track every stay'], ['❤️', 'Wishlists', 'Save places you love'], ['💬', 'Messages', 'Chat with your hosts'], ['🎁', '15% off', 'Your first booking']].map(([i, t, d]) => (
-              <div className="perk" key={t}><span>{i}</span><b>{t}</b><small>{d}</small></div>
+            {[['briefcase', 'Your trips', 'Plan & track every stay'], ['heart', 'Wishlists', 'Save places you love'], ['msg', 'Messages', 'Chat with your hosts'], ['gift', '15% off', 'Your first booking']].map(([i, t, d]) => (
+              <div className="perk" key={t}><span className="perk-ico"><Icon name={i} size={24} /></span><b>{t}</b><small>{d}</small></div>
             ))}
           </div>
         </div>
@@ -71,7 +71,7 @@ export function ProfileScreen() {
         <div className="profile-av">{user.name[0].toUpperCase()}</div>
         <div>
           <h1>{user.name}</h1>
-          <div className="verified"><Icon name="shield" size={14} fill /> Verified member · Gold tier</div>
+          <div className="verified"><Icon name="star" size={14} fill color="#F59E0B" /> Gold member · {bookings.length} trips</div>
         </div>
       </div>
 
@@ -82,13 +82,13 @@ export function ProfileScreen() {
       </div>
 
       <div className="profile-menu">
-        {[['🧳', 'My trips', () => navigate('trips')], ['❤️', 'Wishlist', () => navigate('profile')], ['💳', 'Payments & payouts', () => {}], ['🔔', 'Notifications', () => {}], ['🌐', 'Language & currency', () => {}], ['🛟', 'Help centre', () => {}]].map(([i, t, fn]: any) => (
-          <button key={t} className="profile-row" onClick={fn}><span className="profile-row-ico">{i}</span> {t} <Icon name="chevR" size={16} /></button>
+        {[['briefcase', 'My trips', () => navigate('trips')], ['heart', 'Wishlist', () => document.getElementById('wishlist')?.scrollIntoView({ behavior: 'smooth' })], ['card', 'Payments & payouts', () => showToast('Payments & payouts — coming soon')], ['bell', 'Notifications', () => showToast('Notification settings — coming soon')], ['globe', 'Language & currency', () => showToast('Currently showing USD · more soon')], ['grid', 'Switch to hosting', () => enterHost()], ['buoy', 'Help centre', () => showToast('Help centre — coming soon')]].map(([i, t, fn]: any) => (
+          <button key={t} className="profile-row" onClick={fn}><span className="profile-row-ico"><Icon name={i} size={20} /></span> {t} <Icon name="chevR" size={16} /></button>
         ))}
       </div>
 
       {saved.length > 0 && (
-        <section className="block">
+        <section className="block" id="wishlist">
           <h2 className="stay-h2">Your wishlist</h2>
           <div className="grid">{saved.map((s) => <StayCard key={s.id} stay={s} />)}</div>
         </section>

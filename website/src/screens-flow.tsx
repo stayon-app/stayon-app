@@ -1,15 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useApp, usd, nightsBetween, priceBreakdown, makeBookingCode } from './store';
+import { useApp, nightsBetween, priceBreakdown, makeBookingCode, DIAL_CURRENCY } from './store';
 import { Icon, GradientButton, Logo } from './ui';
 import { stayById } from './data';
 
 /* ═══════════════════════════ AUTH (phone → OTP → account) ═══════════════════════════ */
 export function AuthScreen() {
-  const { navigate, login, pending, setPending } = useApp();
+  const { navigate, login, pending, setPending, setCurrency } = useApp();
   const [step, setStep] = useState<'enter' | 'otp' | 'account'>('enter');
   const [mode, setMode] = useState<'phone' | 'email'>('phone');
   const [value, setValue] = useState('');
-  const [dial] = useState('+1');
+  const [dial, setDial] = useState('+1');
+  const COUNTRIES = [['+1', 'US'], ['+91', 'India'], ['+44', 'UK'], ['+33', 'France'], ['+49', 'Germany']];
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [err, setErr] = useState('');
   const [first, setFirst] = useState('');
@@ -23,6 +24,7 @@ export function AuthScreen() {
 
   const finish = () => {
     login({ name: `${first} ${last}`.trim() || 'Guest', identifier: value });
+    setCurrency(mode === 'phone' ? (DIAL_CURRENCY[dial] || 'USD') : 'USD');
     const dest = pending; setPending(null);
     if (dest) navigate(dest.name, dest.params); else navigate('home');
   };
@@ -50,20 +52,24 @@ export function AuthScreen() {
             <h1>Welcome back</h1>
             <p className="auth-sub">Log in or sign up to book your stay.</p>
             <div className="auth-field">
-              {mode === 'phone' && <span className="auth-dial">🇺🇸 {dial}</span>}
+              {mode === 'phone' && (
+                <select className="auth-dial" value={dial} onChange={(e) => setDial(e.target.value)}>
+                  {COUNTRIES.map(([d, name]) => <option key={d} value={d}>{name} {d}</option>)}
+                </select>
+              )}
               <input autoFocus value={value} onChange={(e) => setValue(e.target.value)}
                 placeholder={mode === 'phone' ? 'Phone number' : 'Email address'}
                 type={mode === 'phone' ? 'tel' : 'email'}
                 onKeyDown={(e) => e.key === 'Enter' && goEnter()} />
             </div>
-            <p className="auth-helper">A secure code will arrive shortly</p>
+            <p className="auth-helper">A secure code will arrive shortly{mode === 'phone' ? ` · prices shown in ${DIAL_CURRENCY[dial] || 'USD'}` : ''}</p>
             <GradientButton full disabled={!validEntry} onClick={goEnter}>Continue</GradientButton>
             <button className="auth-switch" onClick={() => { setMode((m) => (m === 'phone' ? 'email' : 'phone')); setValue(''); }}>
               {mode === 'phone' ? 'Use email instead' : 'Use phone number instead'}
             </button>
             <div className="auth-or"><span>or</span></div>
-            <button className="auth-social" onClick={() => { setValue('google_user'); setStep('otp'); }}><span>🇬</span> Continue with Google</button>
-            <button className="auth-social" onClick={() => { setValue('apple_user'); setStep('otp'); }}><span></span> Continue with Apple</button>
+            <button className="auth-social" onClick={() => { setValue('google_user'); setStep('otp'); }}><Icon name="google" size={18} /> Continue with Google</button>
+            <button className="auth-social" onClick={() => { setValue('apple_user'); setStep('otp'); }}><Icon name="apple" size={18} /> Continue with Apple</button>
           </>
         )}
 
@@ -80,7 +86,7 @@ export function AuthScreen() {
               ))}
             </div>
             {err && <p className="auth-err">{err}</p>}
-            <p className="auth-hint">💡 Demo: type any 6 digits</p>
+            <p className="auth-hint">Demo: type any 6 digits to continue</p>
             <GradientButton full onClick={verify}>Verify</GradientButton>
             <button className="auth-switch">Didn't receive it? <b>Request new code</b></button>
           </>
@@ -108,7 +114,7 @@ export function AuthScreen() {
 
 /* ═══════════════════════════ BOOKING WIZARD (Review → Message → Pay) ═══════════════════════════ */
 export function BookScreen() {
-  const { route, navigate, draft, setDraft, addBooking, user } = useApp();
+  const { route, navigate, draft, setDraft, addBooking, user, money, currency } = useApp();
   const stay = stayById(route.params?.id || draft?.stayId || '');
   const [step, setStep] = useState(0);
   const [checkIn, setCheckIn] = useState(draft?.checkIn || new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
@@ -242,7 +248,7 @@ export function BookScreen() {
                   </div>
                 ) : (
                   <div className="promo-applied">
-                    <Icon name="check" size={16} /> <b>{promo.toUpperCase() || 'STAY10'} applied</b> — you saved {usd(b.discount)} (10% off)
+                    <Icon name="check" size={16} /> <b>{promo.toUpperCase() || 'STAY10'} applied</b> — you saved {money(b.discount)} (10% off)
                     <button onClick={() => { setPromoApplied(false); setPromo(''); }}><Icon name="close" size={14} /></button>
                   </div>
                 )}
@@ -252,9 +258,10 @@ export function BookScreen() {
               {/* Payment methods */}
               <div className="book-field-group">
                 <label className="book-label">Pay with</label>
-                {[['card', '💳 Credit or debit card'], ['apple', ' Apple Pay'], ['google', '🇬 Google Pay'], ['paypal', '🅿️ PayPal']].map(([id, label]) => (
+                {[['card', 'card', 'Credit or debit card'], ['apple', 'apple', 'Apple Pay'], ['google', 'google', 'Google Pay'], ['paypal', 'paypal', 'PayPal']].map(([id, ic, label]) => (
                   <button key={id} className={`pay-opt${pay === id ? ' on' : ''}`} onClick={() => setPay(id)}>
-                    <span className="pay-radio">{pay === id && <i />}</span> {label}
+                    <span className="pay-radio">{pay === id && <i />}</span>
+                    <Icon name={ic} size={20} /> {label}
                   </button>
                 ))}
                 {pay === 'card' && (
@@ -276,12 +283,12 @@ export function BookScreen() {
               <div className="book-field-group">
                 <label className="book-label">Price details</label>
                 <div className="price-lines">
-                  <div><span className="link-u">{usd(stay.price)} × {nights} night{nights > 1 ? 's' : ''}</span><span>{usd(b.subtotal)}</span></div>
-                  <div><span className="link-u">Cleaning fee</span><span>{usd(b.cleaningFee)}</span></div>
-                  <div><button className="link-u btn-text" onClick={() => setShowBreakdown((v) => !v)}>Taxes {showBreakdown ? '▴' : '▾'}</button><span>{usd(b.taxes)}</span></div>
-                  {showBreakdown && <div className="price-sub"><span>Occupancy & tourism tax (8%)</span><span>{usd(b.taxes)}</span></div>}
-                  {b.discount > 0 && <div className="price-discount"><span>Promo discount</span><span>−{usd(b.discount)}</span></div>}
-                  <div className="price-total"><b>Total (USD)</b><b>{usd(b.total)}</b></div>
+                  <div><span className="link-u">{money(stay.price)} × {nights} night{nights > 1 ? 's' : ''}</span><span>{money(b.subtotal)}</span></div>
+                  <div><span className="link-u">Cleaning fee</span><span>{money(b.cleaningFee)}</span></div>
+                  <div><button className="link-u btn-text" onClick={() => setShowBreakdown((v) => !v)}>Taxes {showBreakdown ? '▴' : '▾'}</button><span>{money(b.taxes)}</span></div>
+                  {showBreakdown && <div className="price-sub"><span>Occupancy & tourism tax (8%)</span><span>{money(b.taxes)}</span></div>}
+                  {b.discount > 0 && <div className="price-discount"><span>Promo discount</span><span>−{money(b.discount)}</span></div>}
+                  <div className="price-total"><b>Total ({currency})</b><b>{money(b.total)}</b></div>
                 </div>
               </div>
 
@@ -301,12 +308,12 @@ export function BookScreen() {
               <div><div className="book-sum-title sm">{stay.title}</div><div className="muted">{stay.location}</div></div>
             </div>
             <div className="book-pc-lines">
-              <div><span>{usd(stay.price)} × {nights} nights</span><span>{usd(b.subtotal)}</span></div>
-              <div><span>Cleaning fee</span><span>{usd(b.cleaningFee)}</span></div>
-              <div><span>Taxes</span><span>{usd(b.taxes)}</span></div>
-              {b.discount > 0 && <div className="price-discount"><span>Promo discount</span><span>−{usd(b.discount)}</span></div>}
+              <div><span>{money(stay.price)} × {nights} nights</span><span>{money(b.subtotal)}</span></div>
+              <div><span>Cleaning fee</span><span>{money(b.cleaningFee)}</span></div>
+              <div><span>Taxes</span><span>{money(b.taxes)}</span></div>
+              {b.discount > 0 && <div className="price-discount"><span>Promo discount</span><span>−{money(b.discount)}</span></div>}
             </div>
-            <div className="book-pc-total"><b>Total (USD)</b><b>{usd(b.total)}</b></div>
+            <div className="book-pc-total"><b>Total ({currency})</b><b>{money(b.total)}</b></div>
           </div>
         </aside>
       </div>
@@ -319,7 +326,7 @@ export function BookScreen() {
             <GradientButton onClick={next}>Next</GradientButton>
           ) : (
             <GradientButton icon="lock" disabled={!canConfirm} onClick={confirm}>
-              {stay.instantBook ? `Confirm and pay · ${usd(b.total)}` : 'Request to book'}
+              {stay.instantBook ? `Confirm and pay · ${money(b.total)}` : 'Request to book'}
             </GradientButton>
           )}
         </div>
@@ -331,7 +338,7 @@ export function BookScreen() {
 
 /* ═══════════════════════════ CONFIRMATION ═══════════════════════════ */
 export function ConfirmScreen() {
-  const { lastConfirmation, navigate, showToast } = useApp();
+  const { lastConfirmation, navigate, showToast, money, currency } = useApp();
   const c = lastConfirmation;
   useEffect(() => { if (!c) navigate('home'); }, [c]);
   if (!c) return null;
@@ -378,11 +385,11 @@ export function ConfirmScreen() {
         <div className="confirm-card">
           <h3>Price details</h3>
           <div className="price-lines">
-            <div><span>{usd(c.subtotal / c.nights)} × {c.nights} nights</span><span>{usd(c.subtotal)}</span></div>
-            <div><span>Cleaning fee</span><span>{usd(c.cleaningFee)}</span></div>
-            <div><span>Taxes</span><span>{usd(c.taxes)}</span></div>
-            {c.discount > 0 && <div className="price-discount"><span>Promo discount</span><span>−{usd(c.discount)}</span></div>}
-            <div className="price-total"><b>Total (USD)</b><b>{usd(c.total)}</b></div>
+            <div><span>{money(c.subtotal / c.nights)} × {c.nights} nights</span><span>{money(c.subtotal)}</span></div>
+            <div><span>Cleaning fee</span><span>{money(c.cleaningFee)}</span></div>
+            <div><span>Taxes</span><span>{money(c.taxes)}</span></div>
+            {c.discount > 0 && <div className="price-discount"><span>Promo discount</span><span>−{money(c.discount)}</span></div>}
+            <div className="price-total"><b>Total ({currency})</b><b>{money(c.total)}</b></div>
           </div>
           <div className="confirm-paid"><Icon name="lock" size={14} /> Charged to Visa •••• {c.cardLast4} <span className="paid-tag">Paid</span></div>
         </div>
@@ -390,7 +397,7 @@ export function ConfirmScreen() {
         <div className="confirm-note"><Icon name="shield" size={16} /> For your safety: StayOn will never ask you to pay by bank transfer or move off the app.</div>
 
         <div className="confirm-coins">
-          <span className="coins-star">⭐</span>
+          <span className="coins-star"><Icon name="star" size={26} fill /></span>
           <div><b>You earned {Math.round(c.subtotal / c.nights)} StayCoins!</b><span>Added to your Gold Member balance</span></div>
         </div>
 

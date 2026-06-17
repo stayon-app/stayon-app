@@ -1,8 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { Stay } from './data';
+import type { Stay, HostListing } from './data';
+import { HOST_LISTINGS } from './data';
 
 /* ───────────────────────── Types ───────────────────────── */
-export type RouteName = 'home' | 'explore' | 'stay' | 'auth' | 'book' | 'confirm' | 'trips' | 'profile';
+export type RouteName =
+  | 'home' | 'explore' | 'stay' | 'auth' | 'book' | 'confirm' | 'trips' | 'profile'
+  | 'host-today' | 'host-listings' | 'host-reservations' | 'host-earnings' | 'host-calendar' | 'host-create';
 export type Route = { name: RouteName; params?: Record<string, string> };
 
 export type User = { name: string; identifier: string };
@@ -54,7 +57,23 @@ type Ctx = {
   // toast
   toast: string | null;
   showToast: (msg: string) => void;
+  // host mode
+  enterHost: () => void;
+  exitHost: () => void;
+  hostListings: HostListing[];
+  addHostListing: (l: HostListing) => void;
+  // currency (USD by default; switches with login country)
+  currency: CurrencyCode;
+  setCurrency: (c: CurrencyCode) => void;
+  money: (usdAmount: number) => string;
 };
+
+export type CurrencyCode = 'USD' | 'INR' | 'GBP' | 'EUR';
+const RATE: Record<CurrencyCode, number> = { USD: 1, INR: 83, GBP: 0.79, EUR: 0.92 };
+const SYMBOL: Record<CurrencyCode, string> = { USD: '$', INR: '₹', GBP: '£', EUR: '€' };
+const LOCALE: Record<CurrencyCode, string> = { USD: 'en-US', INR: 'en-IN', GBP: 'en-GB', EUR: 'en-IE' };
+// Dial code → currency, so login country drives the displayed currency.
+export const DIAL_CURRENCY: Record<string, CurrencyCode> = { '+1': 'USD', '+91': 'INR', '+44': 'GBP', '+33': 'EUR', '+49': 'EUR' };
 
 const AppContext = createContext<Ctx>(null as any);
 export const useApp = () => useContext(AppContext);
@@ -67,7 +86,8 @@ function parseHash(): Route {
   const params: Record<string, string> = {};
   if (query) for (const kv of query.split('&')) { const [k, v] = kv.split('='); params[k] = decodeURIComponent(v || ''); }
   const name = (seg[0] || 'home') as RouteName;
-  const valid: RouteName[] = ['home', 'explore', 'stay', 'auth', 'book', 'confirm', 'trips', 'profile'];
+  const valid: RouteName[] = ['home', 'explore', 'stay', 'auth', 'book', 'confirm', 'trips', 'profile',
+    'host-today', 'host-listings', 'host-reservations', 'host-earnings', 'host-calendar', 'host-create'];
   if (!valid.includes(name)) return { name: 'home' };
   if ((name === 'stay' || name === 'book') && seg[1]) params.id = seg[1];
   return { name, params };
@@ -120,9 +140,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     window.setTimeout(() => setToast(null), 2600);
   };
 
+  const enterHost = () => navigate('host-today');
+  const exitHost = () => navigate('home');
+  const [hostListings, setHostListings] = useState<HostListing[]>(HOST_LISTINGS);
+  const addHostListing = (l: HostListing) => setHostListings((s) => [l, ...s]);
+
+  const [currency, setCurrency] = useState<CurrencyCode>('USD');
+  const money = (usdAmount: number) => {
+    const v = Math.round(usdAmount * RATE[currency]);
+    return SYMBOL[currency] + v.toLocaleString(LOCALE[currency]);
+  };
+
   const value: Ctx = {
     route, navigate, back, user, login, logout, pending, setPending,
     draft, setDraft, bookings, addBooking, lastConfirmation, favs, toggleFav, toast, showToast,
+    enterHost, exitHost, hostListings, addHostListing, currency, setCurrency, money,
   };
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

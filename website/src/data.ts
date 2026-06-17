@@ -76,9 +76,9 @@ const HOSTS: Host[] = [
 ];
 
 const baseHighlights = [
-  { icon: '🔑', title: 'Self check-in', desc: 'Check yourself in with the smart lock.' },
-  { icon: '📍', title: 'Great location', desc: '95% of recent guests gave the location 5 stars.' },
-  { icon: '🧊', title: 'Free cancellation', desc: 'Cancel before check-in for a full refund.' },
+  { icon: 'key', title: 'Self check-in', desc: 'Check yourself in with the smart lock.' },
+  { icon: 'pin', title: 'Great location', desc: '95% of recent guests gave the location 5 stars.' },
+  { icon: 'shield', title: 'Free cancellation', desc: 'Cancel before check-in for a full refund.' },
 ];
 
 export const STAYS: Stay[] = [
@@ -194,26 +194,56 @@ export const STAYS: Stay[] = [
 
 export const stayById = (id: string) => STAYS.find((s) => s.id === id);
 
+/* ───────────────────────── Search (city / state / country / type / vibe — space & case insensitive) ───────────────────────── */
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+const tokenize = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+// Nicknames & alternate spellings → canonical phrase present in the data.
+const SEARCH_ALIASES: Record<string, string> = {
+  nyc: 'new york', manhattan: 'new york', ny: 'new york', bigapple: 'new york',
+  la: 'malibu', cali: 'california', sf: 'san francisco',
+  uk: 'united kingdom', england: 'united kingdom', britain: 'united kingdom',
+  bombay: 'mumbai', usa: 'usa', us: 'usa', states: 'usa',
+  greece: 'greece', japan: 'japan', spain: 'spain', france: 'france', india: 'india',
+};
+
+export function stayMatches(s: Stay, query: string): boolean {
+  if (!query.trim()) return true;
+  const hay = norm([s.title, s.location, s.city, s.country, s.type, ...s.vibes, ...s.amenities].join(' '));
+  const raw = query.trim().toLowerCase();
+  const candidates = [raw, SEARCH_ALIASES[norm(raw)]].filter(Boolean) as string[];
+  return candidates.some((q) => {
+    const collapsed = norm(q);
+    if (collapsed && hay.includes(collapsed)) return true; // "newyork" → matches "new york"
+    const toks = tokenize(q);
+    return toks.length > 0 && toks.every((t) => hay.includes(t)); // "new york" / "goa villa"
+  });
+}
+
+export function searchStays(query: string): Stay[] {
+  return STAYS.filter((s) => stayMatches(s, query));
+}
+
 export type Section = { id: string; title: string; subtitle?: string; icon?: string; ids: string[] };
 
 export const SECTIONS: Section[] = [
-  { id: 'fav', title: 'Guest favourites', subtitle: 'Loved by travellers worldwide', icon: '💎', ids: ['malibu', 'manhattan', 'santorini', 'paris', 'aspen', 'goa'] },
-  { id: 'beach', title: 'Beachfront escapes', subtitle: 'Wake up to the water', icon: '🏖️', ids: ['malibu', 'miami', 'barcelona', 'goa', 'santorini'] },
-  { id: 'city', title: 'City stays for explorers', subtitle: 'Right in the middle of it all', icon: '🏙️', ids: ['manhattan', 'london', 'paris', 'barcelona', 'kyoto'] },
-  { id: 'budget', title: 'Hidden gems under $200', subtitle: 'Big on character, easy on the wallet', icon: '🪙', ids: ['austin', 'tahoe', 'goa', 'barcelona'] },
+  { id: 'fav', title: 'Guest favourites', subtitle: 'Loved by travellers worldwide', icon: 'gem', ids: ['malibu', 'manhattan', 'santorini', 'paris', 'aspen', 'goa'] },
+  { id: 'beach', title: 'Beachfront escapes', subtitle: 'Wake up to the water', icon: 'umbrella', ids: ['malibu', 'miami', 'barcelona', 'goa', 'santorini'] },
+  { id: 'city', title: 'City stays for explorers', subtitle: 'Right in the middle of it all', icon: 'building', ids: ['manhattan', 'london', 'paris', 'barcelona', 'kyoto'] },
+  { id: 'budget', title: 'Hidden gems under $200', subtitle: 'Big on character, easy on the wallet', icon: 'tag', ids: ['austin', 'tahoe', 'goa', 'barcelona'] },
 ];
 
 export const CATEGORIES = [
-  { id: 'all', label: 'All', icon: '🏠' },
-  { id: 'beach', label: 'Beachfront', icon: '🏖️' },
-  { id: 'luxury', label: 'Luxe', icon: '💎' },
-  { id: 'mountain', label: 'Mountain', icon: '⛰️' },
-  { id: 'city', label: 'City', icon: '🏙️' },
-  { id: 'lake', label: 'Lakefront', icon: '🛶' },
-  { id: 'romantic', label: 'Romantic', icon: '🌅' },
-  { id: 'ski', label: 'Ski', icon: '🎿' },
-  { id: 'family', label: 'Family', icon: '👨‍👩‍👧' },
-  { id: 'budget', label: 'Budget', icon: '🪙' },
+  { id: 'all', label: 'All', icon: 'home' },
+  { id: 'beach', label: 'Beachfront', icon: 'umbrella' },
+  { id: 'luxury', label: 'Luxe', icon: 'gem' },
+  { id: 'mountain', label: 'Mountain', icon: 'mountain' },
+  { id: 'city', label: 'City', icon: 'building' },
+  { id: 'lake', label: 'Lakefront', icon: 'waves' },
+  { id: 'romantic', label: 'Romantic', icon: 'sunset' },
+  { id: 'ski', label: 'Ski', icon: 'snow' },
+  { id: 'family', label: 'Family', icon: 'users' },
+  { id: 'budget', label: 'Budget', icon: 'tag' },
 ];
 
 export type Destination = { id: string; city: string; country: string; image: string; why: string; bestSeason: string; stays: number };
@@ -247,13 +277,14 @@ export const REELS: Reel[] = [
   { id: 'r5', title: 'Kyoto Machiya', location: 'Kyoto, Japan', caption: 'Tea in the garden 🍵', thumbnail: u('photo-1545569341-9eb8b30979d9', 500), views: '15K', author: 'community' },
 ];
 
-export type ThingToDo = { id: string; title: string; category: string; location: string; duration: string; rating: number; reviews: number; image: string };
+// Things to do are pure travel inspiration — place, time, and what it is. No prices, no ratings.
+export type ThingToDo = { id: string; title: string; category: string; location: string; duration: string; summary: string; image: string };
 
 export const THINGS_TO_DO: ThingToDo[] = [
-  { id: 't1', title: 'Santorini Sunset Sail', category: 'Water Sports', location: 'Santorini, Greece', duration: '4–5 hours', rating: 4.9, reviews: 540, image: u('photo-1559827260-dc66d52bef19', 900) },
-  { id: 't2', title: 'Northern Lights Chase', category: 'Adventure', location: 'Reykjavík, Iceland', duration: '3–4 hours', rating: 4.7, reviews: 410, image: u('photo-1483347756197-71ef80e95f73', 900) },
-  { id: 't3', title: 'Flamenco Show & Tapas', category: 'Entertainment', location: 'Barcelona, Spain', duration: '2–3 hours', rating: 4.6, reviews: 322, image: u('photo-1551036083-0c4d38f96fcd', 900) },
-  { id: 't4', title: 'Cooking Class with a Local Chef', category: 'Food & Drink', location: 'New York, USA', duration: '3 hours', rating: 4.89, reviews: 234, image: u('photo-1556910103-1c02745aae4d', 900) },
+  { id: 't1', title: 'Santorini Sunset Sail', category: 'Water Sports', location: 'Santorini, Greece', duration: 'Late afternoon · 4–5 hours', summary: 'Sail the caldera as the famous Santorini sun goes down, with a swim at the volcanic hot springs along the way.', image: u('photo-1559827260-dc66d52bef19', 900) },
+  { id: 't2', title: 'Northern Lights Chase', category: 'Adventure', location: 'Reykjavík, Iceland', duration: 'Night (Sep–Mar) · 3–4 hours', summary: 'Head into the dark Icelandic countryside to chase the aurora borealis under vast, starry skies.', image: u('photo-1483347756197-71ef80e95f73', 900) },
+  { id: 't3', title: 'Flamenco Show & Tapas', category: 'Entertainment', location: 'Barcelona, Spain', duration: 'Evening · 2–3 hours', summary: 'Passionate live flamenco followed by a self-guided crawl through the tapas bars of the Gothic Quarter.', image: u('photo-1470229722913-7c0e2dbbafd3', 900) },
+  { id: 't4', title: 'Cooking Class with a Local Chef', category: 'Food & Drink', location: 'New York, USA', duration: 'Daytime · 3 hours', summary: 'Cook a regional menu from scratch with a local chef, then sit down together to enjoy the feast.', image: u('photo-1556910103-1c02745aae4d', 900) },
 ];
 
 export type Story = { id: string; category: string; title: string; excerpt: string; author: string; date: string; image: string };
@@ -271,11 +302,44 @@ export const OFFERS: Offer[] = [
   { id: 'referral10', title: '10% off with a referral', description: "Joined through a friend's invite link? Your referral booking gets 10% off, automatically.", badge: '10% OFF', urgency: 'Referral booking only', image: u('photo-1556745757-8d76bdb6984b', 900) },
 ];
 
+// Maps amenity → monochrome icon name (see Icon set in ui.tsx)
 export const AMENITY_ICON: Record<string, string> = {
-  Beachfront: '🏖️', Pool: '🏊', 'Plunge pool': '🏊', Wifi: '📶', Kitchen: '🍳', 'Free parking': '🅿️',
-  'Air conditioning': '❄️', 'Hot tub': '🛁', 'BBQ grill': '🍖', Gym: '🏋️', 'Dedicated workspace': '💻',
-  Elevator: '🛗', 'City view': '🌆', Fireplace: '🔥', 'Ski-in/ski-out': '🎿', 'Mountain view': '⛰️',
-  'Pets allowed': '🐾', 'Lake access': '🛶', Deck: '🌲', Balcony: '🌿', Terrace: '🌅', Garden: '🌳',
-  Washer: '🧺', Heating: '🌡️', 'Caldera view': '🌊', Breakfast: '🥐', 'Tatami room': '🎎', 'Tea set': '🍵',
-  Backyard: '🌳',
+  Beachfront: 'umbrella', Pool: 'waves', 'Plunge pool': 'waves', Wifi: 'wifi', Kitchen: 'utensils', 'Free parking': 'parking',
+  'Air conditioning': 'snow', 'Hot tub': 'bath', 'BBQ grill': 'flame', Gym: 'dumbbell', 'Dedicated workspace': 'laptop',
+  Elevator: 'elevator', 'City view': 'building', Fireplace: 'flame', 'Ski-in/ski-out': 'snow', 'Mountain view': 'mountain',
+  'Pets allowed': 'paw', 'Lake access': 'waves', Deck: 'tree', Balcony: 'tree', Terrace: 'sunset', Garden: 'tree',
+  Washer: 'thermo', Heating: 'thermo', 'Caldera view': 'waves', Breakfast: 'coffee', 'Tatami room': 'home', 'Tea set': 'coffee',
+  Backyard: 'tree', TV: 'tv',
 };
+
+/* ───────────────────────── Host data (mirrors host app seed data) ───────────────────────── */
+export type HostListing = {
+  id: string; title: string; type: string; city: string; country: string; status: 'Published' | 'Draft' | 'Snoozed';
+  price: number; weekend: number; cleaning: number; rating: number; reviews: number;
+  guests: number; bedrooms: number; beds: number; baths: number; instant: boolean; image: string; occupancy: number;
+};
+
+export const HOST_LISTINGS: HostListing[] = [
+  { id: 'hl1', title: 'Sunlit Loft in the City', type: 'Loft', city: 'Hyderabad', country: 'India', status: 'Published', price: 110, weekend: 135, cleaning: 20, rating: 4.86, reviews: 64, guests: 4, bedrooms: 2, beds: 2, baths: 2, instant: true, image: u('photo-1502672260266-1c1ef2d93688', 900), occupancy: 78 },
+  { id: 'hl2', title: 'Palm Garden Villa', type: 'Villa', city: 'Goa', country: 'India', status: 'Published', price: 280, weekend: 340, cleaning: 45, rating: 4.95, reviews: 38, guests: 8, bedrooms: 4, beds: 5, baths: 3, instant: false, image: u('photo-1613490493576-7fde63acd811', 900), occupancy: 64 },
+];
+
+export type Reservation = {
+  id: string; guest: string; avatar: string; listing: string; status: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
+  checkIn: string; checkOut: string; nights: number; guests: number; rate: number; payout: number; instant: boolean; message?: string;
+};
+
+const payout = (rate: number, nights: number, cleaning: number) => rate * nights + cleaning;
+
+export const RESERVATIONS: Reservation[] = [
+  { id: 'r1', guest: 'Aarav Mehta', avatar: avatar('Aarav Mehta'), listing: 'Sunlit Loft in the City', status: 'Pending', checkIn: 'Jun 20', checkOut: 'Jun 23', nights: 3, guests: 2, rate: 110, payout: payout(110, 3, 20), instant: false, message: 'Hi! Travelling for work — is early check-in possible?' },
+  { id: 'r2', guest: 'Sophie Turner', avatar: avatar('Sophie Turner'), listing: 'Palm Garden Villa', status: 'Pending', checkIn: 'Jul 2', checkOut: 'Jul 4', nights: 2, guests: 6, rate: 280, payout: payout(280, 2, 45), instant: false },
+  { id: 'r3', guest: "Liam O'Brien", avatar: avatar("Liam OBrien"), listing: 'Sunlit Loft in the City', status: 'Confirmed', checkIn: 'Jun 14', checkOut: 'Jun 18', nights: 4, guests: 3, rate: 110, payout: payout(110, 4, 20), instant: true },
+  { id: 'r4', guest: 'Mia Chen', avatar: avatar('Mia Chen'), listing: 'Palm Garden Villa', status: 'Confirmed', checkIn: 'Jun 28', checkOut: 'Jul 3', nights: 5, guests: 8, rate: 280, payout: payout(280, 5, 45), instant: true },
+  { id: 'r5', guest: 'Noah Williams', avatar: avatar('Noah Williams'), listing: 'Sunlit Loft in the City', status: 'Completed', checkIn: 'May 10', checkOut: 'May 12', nights: 2, guests: 2, rate: 110, payout: payout(110, 2, 20), instant: true },
+  { id: 'r6', guest: 'Emma Davis', avatar: avatar('Emma Davis'), listing: 'Palm Garden Villa', status: 'Completed', checkIn: 'Apr 22', checkOut: 'Apr 25', nights: 3, guests: 5, rate: 280, payout: payout(280, 3, 45), instant: false },
+  { id: 'r7', guest: 'Raj Patel', avatar: avatar('Raj Patel'), listing: 'Sunlit Loft in the City', status: 'Cancelled', checkIn: 'May 30', checkOut: 'Jun 1', nights: 2, guests: 2, rate: 110, payout: 0, instant: true },
+];
+
+export const PLACE_TYPES = ['House', 'Apartment', 'Villa', 'Cabin', 'Loft', 'Cottage', 'Bungalow', 'Chalet', 'Penthouse', 'Studio', 'Farmhouse', 'Boat'];
+export const HOST_AMENITIES = ['Wifi', 'Kitchen', 'Air conditioning', 'Pool', 'Free parking', 'Dedicated workspace', 'TV', 'Hot tub', 'Beachfront', 'Pets allowed', 'Gym', 'Fireplace'];

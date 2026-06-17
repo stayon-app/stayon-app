@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { useApp, usd } from './store';
+import { useApp } from './store';
 import { Icon, Rating, GradientButton } from './ui';
 import { stayById, AMENITY_ICON } from './data';
 
 export function StayScreen() {
-  const { route, navigate, user, setPending, setDraft, favs, toggleFav, showToast } = useApp();
+  const { route, navigate, user, setPending, setDraft, favs, toggleFav, showToast, money } = useApp();
   const stay = stayById(route.params?.id || '');
   const [gallery, setGallery] = useState(false);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
 
   if (!stay) return (
-    <main className="wrap"><div className="empty"><div className="empty-ico">🏚️</div><h3>Stay not found</h3>
+    <main className="wrap"><div className="empty"><div className="empty-ico"><Icon name="home" size={42} /></div><h3>Stay not found</h3>
       <button className="btn-outline" onClick={() => navigate('home')}>Back home</button></div></main>
   );
 
@@ -63,7 +63,7 @@ export function StayScreen() {
           {/* highlight band */}
           <div className="stay-band">
             <div className="band-cell"><b>{stay.type}</b><span>{stay.maxGuests} guests · {stay.bedrooms} bedrooms · {stay.beds} beds · {stay.baths} baths</span></div>
-            {stay.guestFavourite && <div className="band-cell mid"><span className="band-leaf">🌿</span><b>Guest favourite</b><span>One of the most loved homes on StayOn</span></div>}
+            {stay.guestFavourite && <div className="band-cell mid"><span className="band-leaf"><Icon name="sparkle" size={20} color="#0D9488" /></span><b>Guest favourite</b><span>One of the most loved homes on StayOn</span></div>}
           </div>
 
           {/* Host */}
@@ -79,7 +79,7 @@ export function StayScreen() {
           <div className="stay-section">
             {stay.highlights.map((h) => (
               <div key={h.title} className="hl-row">
-                <span className="hl-ico">{h.icon}</span>
+                <span className="hl-ico"><Icon name={h.icon} size={22} /></span>
                 <div><b>{h.title}</b><span>{h.desc}</span></div>
               </div>
             ))}
@@ -96,7 +96,7 @@ export function StayScreen() {
             <h2 className="stay-h2">What this place offers</h2>
             <div className="amenity-grid">
               {amenities.map((a) => (
-                <div key={a} className="amenity"><span>{AMENITY_ICON[a] || '✅'}</span> {a}</div>
+                <div key={a} className="amenity"><Icon name={AMENITY_ICON[a] || 'check'} size={22} /> {a}</div>
               ))}
             </div>
             {stay.amenities.length > 6 && (
@@ -125,7 +125,7 @@ export function StayScreen() {
                     <img src={r.avatar} alt={r.name} />
                     <div><b>{r.name}</b><span className="muted">{r.location}</span></div>
                   </div>
-                  <div className="review-stars">{'★'.repeat(5)} <span className="muted">· {r.date}</span></div>
+                  <div className="review-stars">{[0, 1, 2, 3, 4].map((i) => <Icon key={i} name="star" size={13} fill color="#F59E0B" />)} <span className="muted">· {r.date}</span></div>
                   <p>{r.text}</p>
                 </div>
               ))}
@@ -151,7 +151,7 @@ export function StayScreen() {
         {/* Sticky reserve panel */}
         <aside className="stay-aside">
           <div className="reserve-card">
-            <div className="reserve-price"><b>{usd(stay.price)}</b> <span className="muted">night</span>
+            <div className="reserve-price"><b>{money(stay.price)}</b> <span className="muted">night</span>
               <span className="reserve-rating"><Icon name="star" size={13} fill color="#F59E0B" /> {stay.rating.toFixed(2)} · {stay.reviews}</span>
             </div>
             <div className="reserve-dates">
@@ -162,10 +162,10 @@ export function StayScreen() {
             <GradientButton full icon="bolt" onClick={reserve}>{stay.instantBook ? 'Reserve' : 'Request to book'}</GradientButton>
             <p className="reserve-note">You won't be charged yet</p>
             <div className="reserve-lines">
-              <div><span className="link-u">{usd(stay.price)} × 5 nights</span><span>{usd(stay.price * 5)}</span></div>
-              <div><span className="link-u">Cleaning fee</span><span>{usd(Math.round(stay.price * 5 * 0.12))}</span></div>
-              <div><span className="link-u">Taxes</span><span>{usd(Math.round(stay.price * 5 * 0.08))}</span></div>
-              <div className="reserve-total"><b>Total before taxes</b><b>{usd(stay.price * 5 + Math.round(stay.price * 5 * 0.12) + Math.round(stay.price * 5 * 0.08))}</b></div>
+              <div><span className="link-u">{money(stay.price)} × 5 nights</span><span>{money(stay.price * 5)}</span></div>
+              <div><span className="link-u">Cleaning fee</span><span>{money(Math.round(stay.price * 5 * 0.12))}</span></div>
+              <div><span className="link-u">Taxes</span><span>{money(Math.round(stay.price * 5 * 0.08))}</span></div>
+              <div className="reserve-total"><b>Total before taxes</b><b>{money(stay.price * 5 + Math.round(stay.price * 5 * 0.12) + Math.round(stay.price * 5 * 0.08))}</b></div>
             </div>
           </div>
           <div className="reserve-free"><Icon name="shield" size={15} /> Free cancellation before check-in</div>
@@ -174,7 +174,7 @@ export function StayScreen() {
 
       {/* Mobile sticky bar */}
       <div className="stay-mobilebar">
-        <div><b>{usd(stay.price)}</b> <span className="muted">night</span><div className="muted sm"><Icon name="star" size={11} fill color="#F59E0B" /> {stay.rating.toFixed(2)}</div></div>
+        <div><b>{money(stay.price)}</b> <span className="muted">night</span><div className="muted sm"><Icon name="star" size={11} fill color="#F59E0B" /> {stay.rating.toFixed(2)}</div></div>
         <GradientButton icon="bolt" onClick={reserve}>{stay.instantBook ? 'Reserve' : 'Request'}</GradientButton>
       </div>
 

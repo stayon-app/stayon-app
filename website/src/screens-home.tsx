@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
 import { useApp } from './store';
-import { Icon, StayCard, SectionHeader, Rating } from './ui';
+import { Icon, StayCard, SectionHeader } from './ui';
 import {
-  SECTIONS, CATEGORIES, DESTINATIONS, COLLECTIONS, REELS, THINGS_TO_DO, STORIES, OFFERS, STAYS, stayById,
+  SECTIONS, CATEGORIES, DESTINATIONS, COLLECTIONS, REELS, THINGS_TO_DO, STORIES, OFFERS, STAYS, stayById, stayMatches,
 } from './data';
 
 /* ───────────────────────── Hero ───────────────────────── */
@@ -38,14 +38,6 @@ function Hero() {
           </div>
           <button className="hero-go" onClick={search} aria-label="Search"><Icon name="search" size={20} /></button>
         </div>
-
-        <div className="hero-stats">
-          <div><b>{STAYS.length * 1240}+</b><span>STAYS</span></div>
-          <i />
-          <div><b>{DESTINATIONS.length * 6}+</b><span>CITIES</span></div>
-          <i />
-          <div><b>4.9</b><span>AVG RATING</span></div>
-        </div>
       </div>
     </section>
   );
@@ -58,7 +50,7 @@ function CategoryBar({ active, setActive }: { active: string; setActive: (id: st
       <div className="catbar-inner">
         {CATEGORIES.map((c) => (
           <button key={c.id} className={`catpill${active === c.id ? ' on' : ''}`} onClick={() => setActive(c.id)}>
-            <span className="catpill-ico">{c.icon}</span>
+            <span className="catpill-ico"><Icon name={c.icon} size={18} /></span>
             <span>{c.label}</span>
           </button>
         ))}
@@ -112,7 +104,7 @@ export function HomeScreen() {
       <main className="wrap">
         {/* Popular destinations */}
         <section className="block">
-          <SectionHeader icon="🌍" title="Popular destinations" subtitle="Trending cities to explore" action="See all" onAction={() => navigate('explore', { tab: 'destinations' })} />
+          <SectionHeader icon="globe" title="Popular destinations" subtitle="Trending cities to explore" action="See all" onAction={() => navigate('explore', { tab: 'destinations' })} />
           <Carousel>
             {DESTINATIONS.map((d) => (
               <button key={d.id} className="dest-card" onClick={() => navigate('explore', { q: d.city })}>
@@ -141,7 +133,7 @@ export function HomeScreen() {
 
         {/* Curated collections */}
         <section className="block">
-          <SectionHeader icon="✨" title="Curated collections" subtitle="Handpicked by our travel experts" />
+          <SectionHeader icon="sparkle" title="Curated collections" subtitle="Handpicked by our travel experts" />
           <div className="coll-grid">
             {COLLECTIONS.map((c) => (
               <button key={c.id} className="coll-card" onClick={() => navigate('explore')}>
@@ -158,15 +150,15 @@ export function HomeScreen() {
 
         {/* StayReels */}
         <section className="block">
-          <SectionHeader icon="🎬" title="StayReels" subtitle="Real moments from real stays" action="Post a reel" onAction={() => navigate('explore', { tab: 'reels' })} />
+          <SectionHeader icon="film" title="StayReels" subtitle="Real moments from real stays" action="Post a reel" onAction={() => navigate('explore', { tab: 'reels' })} />
           <Carousel>
             {REELS.map((r) => (
               <div className="reel-card" key={r.id}>
                 <img src={r.thumbnail} alt={r.title} loading="lazy" />
-                <span className="reel-play"><Icon name="bolt" size={18} fill /></span>
+                <span className="reel-play"><Icon name="play" size={16} fill /></span>
                 <div className="reel-meta">
                   <div className="reel-title">{r.title}</div>
-                  <div className="reel-views">▶ {r.views} views</div>
+                  <div className="reel-views"><Icon name="play" size={11} fill /> {r.views} views</div>
                 </div>
               </div>
             ))}
@@ -175,15 +167,15 @@ export function HomeScreen() {
 
         {/* Things to do */}
         <section className="block">
-          <SectionHeader icon="🗺️" title="Things to do" subtitle="Inspiration around the world" />
+          <SectionHeader icon="map" title="Things to do" subtitle="Inspiration around the world" />
           <Carousel>
             {THINGS_TO_DO.map((t) => (
               <div className="todo-card" key={t.id}>
                 <div className="todo-media"><img src={t.image} alt={t.title} loading="lazy" /><span className="todo-cat">{t.category}</span></div>
                 <div className="todo-body">
                   <div className="todo-title">{t.title}</div>
-                  <div className="todo-loc"><Icon name="pin" size={13} /> {t.location}</div>
-                  <div className="todo-foot"><span>⏱ {t.duration}</span><Rating value={t.rating} reviews={t.reviews} /></div>
+                  <p className="todo-summary">{t.summary}</p>
+                  <div className="todo-meta"><span><Icon name="pin" size={13} /> {t.location}</span><span><Icon name="clock" size={13} /> {t.duration}</span></div>
                 </div>
               </div>
             ))}
@@ -192,7 +184,7 @@ export function HomeScreen() {
 
         {/* Travel stories */}
         <section className="block">
-          <SectionHeader icon="📖" title="Travel stories" subtitle="Inspiration from our community" action="Read more" />
+          <SectionHeader icon="book" title="Travel stories" subtitle="Inspiration from our community" action="Read more" />
           <div className="story-grid">
             {STORIES.map((s) => (
               <article className="story-card" key={s.id}>
@@ -225,7 +217,7 @@ export function ExploreScreen() {
   const toggleChip = (c: string) => setChips((s) => { const n = new Set(s); n.has(c) ? n.delete(c) : n.add(c); return n; });
 
   let stays = STAYS;
-  if (q) { const ql = q.toLowerCase(); stays = stays.filter((s) => (s.title + s.location + s.city + s.country).toLowerCase().includes(ql)); }
+  if (q.trim()) stays = stays.filter((s) => stayMatches(s, q));
   if (filter !== 'all') stays = stays.filter((s) => s.vibes.includes(filter));
   if (chips.has('Instant book')) stays = stays.filter((s) => s.instantBook);
   if (chips.has('Beachfront')) stays = stays.filter((s) => s.amenities.includes('Beachfront'));
@@ -255,7 +247,7 @@ export function ExploreScreen() {
             <div className="catbar-inner" style={{ padding: '10px 0' }}>
               {CATEGORIES.map((c) => (
                 <button key={c.id} className={`chip${filter === c.id ? ' on' : ''}`} onClick={() => setFilter(c.id)}>
-                  <span>{c.icon}</span> {c.label}
+                  <Icon name={c.icon} size={15} /> {c.label}
                 </button>
               ))}
             </div>
@@ -271,9 +263,14 @@ export function ExploreScreen() {
             <div className="explore-count">{stays.length} {stays.length === 1 ? 'stay' : 'stays'} {q ? `in “${q}”` : 'worldwide'}</div>
             {stays.length === 0 ? (
               <div className="empty">
-                <div className="empty-ico">🔍</div>
-                <h3>No stays match your filters</h3>
-                <p>Try a different destination or clear your filters.</p>
+                <div className="empty-ico"><Icon name="search" size={42} /></div>
+                <h3>No stays match “{q}”</h3>
+                <p>Try a city, state or country — for example:</p>
+                <div className="search-suggest">
+                  {['New York', 'Goa', 'Paris', 'California', 'Spain', 'Beachfront'].map((s) => (
+                    <button key={s} className="chip" onClick={() => { setQ(s); setFilter('all'); setChips(new Set()); }}>{s}</button>
+                  ))}
+                </div>
                 <button className="btn-outline" onClick={() => { setQ(''); setFilter('all'); setChips(new Set()); }}>Clear all filters</button>
               </div>
             ) : (
@@ -306,11 +303,11 @@ export function ExploreScreen() {
             {REELS.map((r) => (
               <div className="reel-card big" key={r.id}>
                 <img src={r.thumbnail} alt={r.title} loading="lazy" />
-                <span className="reel-play"><Icon name="bolt" size={22} fill /></span>
+                <span className="reel-play"><Icon name="play" size={20} fill /></span>
                 <div className="reel-cap">{r.caption}</div>
                 <div className="reel-meta">
                   <div className="reel-title">{r.title}</div>
-                  <div className="reel-views">{r.location} · ▶ {r.views}</div>
+                  <div className="reel-views">{r.location} · {r.views} views</div>
                 </div>
               </div>
             ))}
