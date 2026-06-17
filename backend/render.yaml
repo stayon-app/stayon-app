@@ -19,6 +19,9 @@ services:
         sync: false              # secret
       - key: JWT_SECRET
         generateValue: true      # Render generates a strong secret once
+      - key: OTP_TRANSPORT
+        value: console           # console = log + return devCode (no SMS cost).
+                                 # Switch to 'twilio' and add TWILIO_* when going live.
       - key: GEMINI_API_KEY
         sync: false              # AI photo classification (free — Google AI Studio)
       - key: ANTHROPIC_API_KEY

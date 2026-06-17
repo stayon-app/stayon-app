@@ -5,12 +5,11 @@
 
 const crypto = require('crypto');
 const { supabase } = require('../supabase');
-const { sendOtp: smsSend } = require('./sms');
+const { sendOtp: smsSend, isConsoleTransport } = require('./sms');
 
 const OTP_LENGTH   = parseInt(process.env.OTP_LENGTH, 10) || 6;
 const OTP_EXPIRY   = parseInt(process.env.OTP_EXPIRY_SECONDS, 10) || 300; // 5 min
 const MAX_ATTEMPTS = 5;
-const DEV = process.env.NODE_ENV !== 'production';
 
 /** Generate a cryptographically random N-digit numeric code. */
 function generateCode(len = OTP_LENGTH) {
@@ -45,11 +44,12 @@ async function createOtp(phone, userId) {
   });
   if (error) throw new Error(`Failed to store OTP: ${error.message}`);
 
-  // Send via SMS (console in dev)
+  // Send via the configured transport (console logs the code)
   await smsSend(phone, code);
 
   const result = { expiresIn: OTP_EXPIRY };
-  if (DEV) result.devCode = code; // Return code in dev mode for testing
+  // Surface the code to the client only while using the console transport
+  if (isConsoleTransport) result.devCode = code;
   return result;
 }
 
