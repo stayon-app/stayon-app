@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { signAccess, createRefreshToken, rotateRefreshToken, revokeToken, authUser } = require('../auth');
-const { one, insertRow, wrap, ok, err, userOut } = require('../utils/helpers');
+const { one, insertRow, updateByMatch, wrap, ok, err, userOut } = require('../utils/helpers');
 const { createOtp, verifyOtp } = require('../services/otp');
 const { otpSendLimiter, otpVerifyLimiter } = require('../middleware/rateLimiter');
 
@@ -85,6 +85,29 @@ router.get('/me', authUser, wrap(async (req, res) => {
     return ok(res, await one('staff', { id: req.auth.sub }));
   }
   ok(res, userOut(await one('users', { id: req.auth.sub })));
+}));
+
+// ── Update current user profile (name/email) ───────────────────────────────
+// PUT /v1/me   { name?, email? }   — used by the account-creation step
+router.put('/me', authUser, wrap(async (req, res) => {
+  if (req.auth.kind === 'staff') return err(res, 'FORBIDDEN', 'staff profile not editable here', 403);
+
+  const { name, email } = req.body || {};
+  const patch = {};
+  if (name !== undefined) patch.name = String(name).trim();
+  if (email !== undefined) patch.email = String(email).trim().toLowerCase() || null;
+  if (!Object.keys(patch).length) return err(res, 'NO_FIELDS', 'nothing to update');
+
+  // Enforce one-email-per-account
+  if (patch.email) {
+    const clash = await one('users', { email: patch.email });
+    if (clash && clash.id !== req.auth.sub) {
+      return err(res, 'EMAIL_IN_USE', 'That email is already linked to another StayOn account.', 409);
+    }
+  }
+
+  const updated = await updateByMatch('users', { id: req.auth.sub }, patch);
+  ok(res, userOut(updated[0]));
 }));
 
 // ── Ops staff login (unchanged — email-only for now) ───────────────────────
