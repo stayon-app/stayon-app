@@ -95,6 +95,19 @@ router.post('/reels', authUser, wrap(async (req, res) => {
 
 router.get('/reels', wrap(async (req, res) => ok(res, { items: await rows('reels', { status: 'live' }) })));
 
+// Trust & safety: a user reports a listing/review/reel/user for Ops review.
+router.post('/reports', authUser, wrap(async (req, res) => {
+  const r = await insertRow('reports', {
+    reporter_id: req.auth.sub,
+    target_type: req.body.targetType,
+    target_id: String(req.body.targetId),
+    reason: req.body.reason,
+    details: req.body.details,
+    status: 'open',
+  });
+  ok(res, r);
+}));
+
 router.get('/wishlists', authUser, wrap(async (req, res) => ok(res, { items: await rows('wishlists', { user_id: req.auth.sub }) })));
 
 router.post('/wishlists', authUser, wrap(async (req, res) => {
