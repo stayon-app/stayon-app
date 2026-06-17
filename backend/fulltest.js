@@ -9,6 +9,12 @@ const put = (p, b, t) => call('PUT', p, b, t);
 const get = (p, t) => call('GET', p, b = undefined, t);
 const del = (p, t) => call('DELETE', p, undefined, t);
 
+// OTP login helper: send-otp (dev returns the code) → verify-otp → { accessToken, refreshToken, user }
+const login = async (phone, name) => {
+  const sent = (await post('/auth/send-otp', { phone, name })).body;
+  return (await post('/auth/verify-otp', { phone, code: sent.devCode })).body;
+};
+
 let pass = 0, fail = 0;
 function check(name, cond, extra) {
   if (cond) { pass++; console.log('  ✓', name); }
@@ -17,8 +23,8 @@ function check(name, cond, extra) {
 
 (async () => {
   console.log('\n== AUTH ==');
-  const host = (await post('/auth/login', { phone: '+91900', name: 'Asha Host' })).body;
-  const user = (await post('/auth/login', { phone: '+32100', name: 'Sam Guest' })).body;
+  const host = await login('+91900', 'Asha Host');
+  const user = await login('+32100', 'Sam Guest');
   const ops = (await post('/ops/auth/login', { email: 'ops@stayon.com' })).body;
   check('host token', !!host.accessToken);
   check('user token', !!user.accessToken);
@@ -57,7 +63,7 @@ function check(name, cond, extra) {
   check('listing rating updated', (await get(`/listings/${created.id}`)).body.ratingCount >= 1);
 
   console.log('\n== MESSAGING + contact guard ==');
-  const u2 = (await post('/auth/login', { phone: '+32999', name: 'NoBook' })).body;
+  const u2 = await login('+32999', 'NoBook');
   const th = (await post('/threads', { listingId: created.id }, u2.accessToken)).body;
   const blocked = await post(`/threads/${th.id}/messages`, { text: 'call me 9876543210' }, u2.accessToken);
   check('contact blocked pre-booking', blocked.status === 422 && blocked.body.error.code === 'CONTACT_BLOCKED', blocked.body);

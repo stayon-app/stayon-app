@@ -94,9 +94,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ navigation, route }) => 
     if (mode === 'phone') {
       const nationalNumber = phone.replace(/[^0-9]/g, '');
       const phoneOrEmail = `${country.dialCode} ${nationalNumber}`;
-      // Pass the country so the app can pick the right currency (e.g. India -> INR).
       navigation.navigate('OTP', {
         phoneOrEmail,
+        phone: nationalNumber,
         countryCode: country.code,
         dialCode: country.dialCode,
         returnAction,

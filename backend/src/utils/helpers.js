@@ -108,6 +108,17 @@ const wrap = (fn) => (req, res) =>
   fn(req, res).catch((e) => err(res, e.code || 'SERVER', e.message || 'error', 500));
 
 // Output mappers (snake_case DB → camelCase API)
+const userOut = (r) => r && ({
+  id: r.id,
+  phone: r.phone,
+  email: r.email,
+  name: r.name,
+  avatarUrl: r.avatar_url,
+  countryCode: r.country_code,
+  status: r.status,
+  createdAt: r.created_at,
+});
+
 const listingOut = (r) => r && ({
   id: r.id,
   hostId: r.host_id,
@@ -243,6 +254,7 @@ module.exports = {
   sendPush,
   audit,
   wrap,
+  userOut,
   listingOut,
   extraGuestsCount,
   effectiveNightly,

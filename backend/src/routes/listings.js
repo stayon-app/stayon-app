@@ -14,7 +14,8 @@ const {
   reviewOut,
   effectiveNightly,
   nightlyForGuestsRow,
-  distKm
+  distKm,
+  TAX_RATE
 } = require('../utils/helpers');
 
 const listingIn = (b) => ({

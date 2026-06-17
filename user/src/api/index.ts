@@ -1,35 +1,38 @@
 // Typed endpoint wrappers + session bootstrap for the StayOn backend.
 // Domains mirror backend/src/index.js. Import { Api } from '../api'.
 
-import { http, setToken, getToken } from './client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { http, setTokens, clearTokens, getToken, getRefreshToken } from './client';
 
-const PHONE_KEY = '@stayon_api_phone';
-
-/** Ensure we have a backend session. Reuses a device-stable phone so the same
- * user maps to the same backend account across launches. Safe to call often. */
-export async function ensureSession(name?: string): Promise<string | null> {
+/** Ensure we have a backend session. If we already have a token, skip. */
+export async function ensureSession(_name?: string): Promise<string | null> {
   const existing = await getToken();
   if (existing) return existing;
-  let phone = await AsyncStorage.getItem(PHONE_KEY);
-  if (!phone) {
-    // device-stable pseudo-phone for the dev migration
-    phone = '+10' + Math.floor(1000000000 + Math.random() * 8999999999);
-    await AsyncStorage.setItem(PHONE_KEY, phone);
-  }
-  const r = await http.post('/auth/login', { phone, name });
-  await setToken(r.accessToken);
-  return r.accessToken;
+  // No session — caller should go through the OTP auth flow.
+  return null;
 }
 
 export async function signOut() {
-  await setToken(null);
+  try {
+    const rt = await getRefreshToken();
+    if (rt) await http.post('/auth/logout', { refreshToken: rt });
+  } catch { /* best-effort */ }
+  await clearTokens();
 }
 
 export const Api = {
   auth: {
-    login: (phone: string, name?: string, countryCode?: string) =>
-      http.post('/auth/login', { phone, name, countryCode }),
+    /** Send an OTP to the given phone number. */
+    sendOtp: (phone: string, countryCode: string) =>
+      http.post('/auth/send-otp', { phone, countryCode }),
+    /** Verify an OTP code. Returns tokens + user. */
+    verifyOtp: (phone: string, code: string) =>
+      http.post('/auth/verify-otp', { phone, code }),
+    /** Refresh the access token using a refresh token. */
+    refresh: (refreshToken: string) =>
+      http.post('/auth/refresh', { refreshToken }),
+    /** Logout — invalidate the refresh token server-side. */
+    logout: () => signOut(),
+    /** Get the current authenticated user. */
     me: () => http.get('/me'),
     ensureSession,
     signOut,
