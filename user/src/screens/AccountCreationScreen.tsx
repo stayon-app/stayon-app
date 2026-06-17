@@ -84,7 +84,6 @@ export const AccountCreationScreen: React.FC<AccountCreationScreenProps> = ({
       return;
     }
     light();
-    console.log('Account created:', { firstName, surname, dateOfBirth, email });
     onAccountCreated?.();
   };
 

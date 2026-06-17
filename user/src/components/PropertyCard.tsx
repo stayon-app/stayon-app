@@ -155,10 +155,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       <TouchableOpacity
         style={styles.card}
         activeOpacity={1}
-        onPress={() => {
-          console.log('PropertyCard pressed:', property.id, property.title);
-          onPress?.();
-        }}
+        onPress={() => onPress?.()}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
       >
@@ -325,25 +322,10 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
 function makeStyles(colors: any, cardWidth: number) {
   return StyleSheet.create({
+  // Airbnb-clean: no outer card chrome. The single rounded image IS the frame —
+  // text sits directly beneath it (kills the old "frame-on-a-frame" look).
   card: {
     marginBottom: spacing.xl,
-    backgroundColor: colors.background, // Changed from colors.surface
-    borderRadius: borderRadius.lg,
-    padding: spacing.sm,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.10,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 4,
-      },
-      web: {
-        boxShadow: '0 6px 16px rgba(0,0,0,0.10)',
-      },
-    }),
   },
   imageContainer: {
     position: 'relative',
@@ -352,6 +334,9 @@ function makeStyles(colors: any, cardWidth: number) {
     marginBottom: spacing.md,
     backgroundColor: colors.backgroundSecondary,
     height: 280,
+    // crisp hairline edge so the rounded photo reads cleanly on a white page
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   imageScroll: {
     width: '100%',
@@ -427,16 +412,21 @@ function makeStyles(colors: any, cardWidth: number) {
     color: '#1A1A1A',
     letterSpacing: 0.2,
   },
+  // Borderless heart with a soft shadow (Airbnb-style) — reads on any photo
+  // without a heavy dark puck behind it.
   heartButton: {
     position: 'absolute',
     top: spacing.md,
     right: spacing.md,
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.45, shadowRadius: 3 },
+      android: { elevation: 3 },
+      web: { filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.45))' } as any,
+    }),
   },
   paginationContainer: {
     position: 'absolute',

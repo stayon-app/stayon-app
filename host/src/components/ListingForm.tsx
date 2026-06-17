@@ -78,7 +78,7 @@ export const ListingForm: React.FC<ListingFormProps> = ({ initial, mode, onSubmi
   const pickPhotos = async () => {
     light();
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Permission needed', 'Allow photo access to add pictures.'); return; }
+    if (!perm.granted) { Alert.alert('Permission needed', 'Allow photo access to add photos.'); return; }
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
@@ -183,7 +183,7 @@ export const ListingForm: React.FC<ListingFormProps> = ({ initial, mode, onSubmi
             <Text style={styles.pickText}>Add video ({d.videos.length}/{MAX_VIDEOS})</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.hint}>Pictures show first in the guest gallery. You can add up to {MAX_VIDEOS} videos.</Text>
+        <Text style={styles.hint}>Photos show first in the guest gallery. You can add up to {MAX_VIDEOS} videos.</Text>
 
         {/* Basics */}
         <Text style={styles.section}>Basics</Text>

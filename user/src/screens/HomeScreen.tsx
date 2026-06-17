@@ -803,7 +803,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   <PropertyCard
                     property={property}
                     onPress={() => navigation.navigate('PropertyDetails', { property })}
-                    onFavoritePress={() => console.log('Favorite:', property.id)}
+                    onFavoritePress={() => {}}
                   />
                 </Reveal>
               ))}
@@ -931,7 +931,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 <PropertyCard
                   property={property}
                   onPress={() => navigation.navigate('PropertyDetails', { property })}
-                  onFavoritePress={() => console.log('Favorite:', property.id)}
+                  onFavoritePress={() => {}}
                 />
               </View>
             ))}

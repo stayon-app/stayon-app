@@ -95,6 +95,8 @@ export default function App() {
     import('./src/services/featureFlags').then((m) => m.loadFeatureFlags()).catch(() => {});
     // Register for push notifications (no-op until expo-notifications is added).
     import('./src/services/push').then((m) => m.registerForPush()).catch(() => {});
+    // Replay any host publishes that were queued while the backend was offline.
+    import('./src/host/data/publishQueue').then((m) => m.flushPublishQueue()).catch(() => {});
   }, []);
 
   useEffect(() => {

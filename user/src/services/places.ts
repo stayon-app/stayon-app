@@ -9,7 +9,9 @@
 // All functions fail soft: on any network/quota error they resolve to an empty
 // result so the UI can fall back to the local DESTINATIONS index.
 
-const GOOGLE_PLACES_KEY = 'AIzaSyD-xBIuVKRb8K1AI0EjP8mq-vTQkwHyqKA';
+import { GOOGLE_MAPS_KEY } from '../config/maps';
+
+const GOOGLE_PLACES_KEY = GOOGLE_MAPS_KEY;
 
 const AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
 const DETAILS_URL = 'https://places.googleapis.com/v1/places';

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LIGHT_MAP_STYLE, DARK_MAP_STYLE } from '../utils/mapStyle';
+import { GOOGLE_MAPS_KEY } from '../config/maps';
 
 export interface MapPin {
   id: string;
@@ -54,7 +55,7 @@ export const PropertyMapWeb: React.FC<PropertyMapWebProps> = ({
 
   // Google Maps JavaScript API (same key as Places). Requires "Maps JavaScript
   // API" to be enabled on the key in Google Cloud.
-  const GOOGLE_KEY = 'AIzaSyD-xBIuVKRb8K1AI0EjP8mq-vTQkwHyqKA';
+  const GOOGLE_KEY = GOOGLE_MAPS_KEY;
   const mapTypeId = mapType === 'satellite' ? 'satellite' : 'roadmap';
   // Light → Airbnb-style theme; Street → plain Google roadmap; Satellite → imagery.
   const MAP_STYLE = mapType === 'light' ? (isDark ? DARK_MAP_STYLE : LIGHT_MAP_STYLE) : [];

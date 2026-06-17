@@ -70,7 +70,7 @@ export const UtilsDemoScreen: React.FC = () => {
       message: messages[type],
       duration: 3000,
       actionText: 'Undo',
-      onActionPress: () => console.log('Action pressed'),
+      onActionPress: () => {},
     });
   };
 

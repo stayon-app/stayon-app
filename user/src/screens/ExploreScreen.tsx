@@ -1079,7 +1079,7 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ navigation, route 
               properties={nearLandmarkProperties}
               onPropertyPress={handlePropertyPress}
               onFavoriteToggle={handleFavoriteToggle}
-              onSeeAll={() => console.log(`See all near ${landmarks[0]}`)}
+              onSeeAll={() => navigation.navigate('MapExplore', { searchQuery: landmarks[0] })}
             />
 
             <ExploreSection
@@ -1103,7 +1103,7 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ navigation, route 
               properties={nearCityProperties}
               onPropertyPress={handlePropertyPress}
               onFavoriteToggle={handleFavoriteToggle}
-              onSeeAll={() => console.log(`See all ${landmarks[1]}`)}
+              onSeeAll={() => navigation.navigate('MapExplore', { searchQuery: landmarks[1] })}
             />
 
             <ExploreSection
@@ -1111,7 +1111,7 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ navigation, route 
               properties={popularProperties}
               onPropertyPress={handlePropertyPress}
               onFavoriteToggle={handleFavoriteToggle}
-              onSeeAll={() => console.log(`See all ${currentLocation}`)}
+              onSeeAll={() => navigation.navigate('MapExplore', { searchQuery: currentLocation })}
             />
 
             <ExploreSection

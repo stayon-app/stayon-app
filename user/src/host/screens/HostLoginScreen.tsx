@@ -64,7 +64,7 @@ export function HostLoginScreen() {
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollBody}>
           {/* Brand */}
           <View style={styles.brandWrap}>
-            <Text style={styles.brand}>Stay On <Text style={styles.brandPill}>HOST</Text></Text>
+            <Text style={styles.brand}>StayOn <Text style={styles.brandPill}>HOST</Text></Text>
             <Text style={styles.tagline}>Sign in to manage your stays, calendar and earnings.</Text>
           </View>
 

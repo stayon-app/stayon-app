@@ -205,10 +205,10 @@ export const ProfileScreen: React.FC = () => {
         <Reveal delay={140}>
         <View style={styles.qaGrid}>
           {[
-            { img: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=500&q=80&auto=format&fit=crop', label: 'Trips', sub: 'Upcoming & past', go: 'TripsTab' },
-            { img: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=500&q=80&auto=format&fit=crop', label: 'Wishlists', sub: 'Saved places', go: 'Wishlist' },
-            { img: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=500&q=80&auto=format&fit=crop', label: 'Wallet', sub: 'Payments & credit', go: 'StayWallet' },
-            { img: 'https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?w=500&q=80&auto=format&fit=crop', label: 'Offers', sub: 'Your discounts', go: 'Offers' },
+            { img: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=500&q=80&auto=format&fit=crop', label: 'Trips', sub: 'Upcoming & past', go: 'TripsTab' },
+            { img: 'https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=500&q=80&auto=format&fit=crop', label: 'Wishlists', sub: 'Saved places', go: 'Wishlist' },
+            { img: 'https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?w=500&q=80&auto=format&fit=crop', label: 'Wallet', sub: 'Payments & credit', go: 'StayWallet' },
+            { img: 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=500&q=80&auto=format&fit=crop', label: 'Offers', sub: 'Your discounts', go: 'Offers' },
           ].map((q) => (
             <TouchableOpacity
               key={q.label}
@@ -232,7 +232,7 @@ export const ProfileScreen: React.FC = () => {
         <Reveal delay={220}>
         <TouchableOpacity activeOpacity={0.92} onPress={() => setMode('host')} style={styles.becomeHost}>
           <Image
-            source={{ uri: 'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?w=1000&q=80&auto=format&fit=crop' }}
+            source={{ uri: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1000&q=80&auto=format&fit=crop' }}
             style={StyleSheet.absoluteFill as any}
             contentFit="cover"
             transition={200}

@@ -46,10 +46,10 @@ const mockDestination: Destination = {
   propertyCount: 2847,
   activityCount: 156,
   placeCount: 42,
-  bestTimeToVisit: 'November to March',
-  averageTemp: '24°C (Winter) / 40°C (Summer)',
-  currency: 'AED',
-  language: 'Arabic, English',
+  bestTimeToVisit: 'April to June, September to November',
+  averageTemp: '0°C (Winter) / 28°C (Summer)',
+  currency: 'USD',
+  language: 'English',
 };
 
 export const DestinationDetailsScreen: React.FC = () => {

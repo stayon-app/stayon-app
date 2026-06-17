@@ -481,7 +481,7 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
 
           <View style={styles.basicInfoRow}>
             <Text style={styles.basicInfo}>
-              {property.guests} guests · {property.bedrooms} bedroom · {property.beds} beds · {property.bathrooms} bathroom
+              {property.guests} guest{property.guests === 1 ? '' : 's'} · {property.bedrooms} bedroom{property.bedrooms === 1 ? '' : 's'} · {property.beds} bed{property.beds === 1 ? '' : 's'} · {property.bathrooms} bathroom{property.bathrooms === 1 ? '' : 's'}
             </Text>
           </View>
 

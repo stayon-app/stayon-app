@@ -314,7 +314,10 @@ app.put('/v1/listings/:id', authUser, wrap(async (req, res) => {
     if (v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0)) newExtra[k] = v;
   }
   patch.extra = { ...(l.extra || {}), ...newExtra };
-  if (req.body.publish !== undefined) patch.status = req.body.publish ? 'published' : (l.status || 'draft');
+  // publish:true → live; publish:false → actually unpublish (back to draft).
+  if (req.body.publish !== undefined) patch.status = req.body.publish ? 'published' : 'draft';
+  // Allow an explicit status (e.g. 'draft' | 'published') when no publish flag is sent.
+  else if (typeof req.body.status === 'string') patch.status = req.body.status;
   const { error } = await sb.from('listings').update(patch).eq('id', req.params.id);
   if (error && /extra/.test(error.message || '')) {
     const { extra, ...rest } = patch; // migration-002 not run → skip extras

@@ -114,8 +114,6 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
   };
 
   const handleVerify = async (fullCode: string) => {
-    console.log('OTP entered:', fullCode);
-
     // Require a complete 6-digit numeric code
     if (fullCode.length === 6 && /^[0-9]{6}$/.test(fullCode)) {
       light();
@@ -153,7 +151,6 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
   const handleResend = () => {
     // Simulate resend - clear, reset error and refocus
     light();
-    console.log('Resending code...');
     setError(false);
     setCode(['', '', '', '', '', '']);
     inputRefs.current[0]?.focus();

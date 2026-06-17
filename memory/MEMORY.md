@@ -1,0 +1,1 @@
+- [Premium card/UI work lives in the apps](desktop-web-separate-site.md) — not a separate website or desktop rework; match Airbnb's clean single-frame look

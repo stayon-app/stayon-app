@@ -55,7 +55,7 @@ export const PropertyMapView: React.FC<PropertyMapViewProps> = ({
         <Ionicons name="map-outline" size={64} color={colors.textTertiary} />
         <Text style={styles.webFallbackTitle}>Map View</Text>
         <Text style={styles.webFallbackText}>
-          Interactive maps are available on iOS and Android apps.
+          Interactive maps are available in the iOS and Android apps.
         </Text>
         <Text style={styles.webFallbackSubtext}>
           Download the StayOn mobile app to explore properties on the map.

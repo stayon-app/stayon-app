@@ -118,8 +118,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ navigation, route }) => 
 
   const handleSocialLogin = (provider: string) => {
     // For now, simulate social login by going to OTP
-    console.log('Social login with:', provider);
-    navigation.navigate('OTP', { 
+    navigation.navigate('OTP', {
       phoneOrEmail: `${provider}_user`, 
       returnAction 
     });
@@ -355,23 +354,21 @@ function makeStyles(height: number) {
   },
   loginCard: {
     width: '100%',
-    maxWidth: 430,
+    maxWidth: 420,
     backgroundColor: '#FFFFFF',
-    borderRadius: 28,
+    borderRadius: 24,
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
     paddingBottom: spacing.xl + spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 24 },
-        shadowOpacity: 0.35,
-        shadowRadius: 48,
+        shadowOffset: { width: 0, height: 18 },
+        shadowOpacity: 0.18,
+        shadowRadius: 40,
       },
-      android: { elevation: 24 },
-      default: { boxShadow: '0 24px 60px rgba(15,23,42,0.35)' } as any,
+      android: { elevation: 18 },
+      default: { boxShadow: '0 18px 48px rgba(15,23,42,0.20)' } as any,
     }),
   },
   titleContainer: {
@@ -418,41 +415,30 @@ function makeStyles(height: number) {
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E8EE',
+    borderRadius: 14,
     marginBottom: spacing.base,
-    backgroundColor: '#F8FAFC',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0D9488',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    backgroundColor: '#F7F8FA',
   },
   inputContainerFocused: {
     borderColor: '#14B8A6',
-    borderWidth: 2.5,
+    borderWidth: 1.5,
     backgroundColor: '#FFFFFF',
     ...Platform.select({
       ios: {
         shadowColor: '#14B8A6',
-        shadowOpacity: 0.25,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.18,
+        shadowRadius: 8,
       },
-      android: {
-        elevation: 8,
-      },
+      android: { elevation: 4 },
+      default: { boxShadow: '0 0 0 4px rgba(20,184,166,0.14)' } as any,
     }),
   },
   inputContainerError: {
     borderColor: '#EF4444',
-    borderWidth: 2.5,
+    borderWidth: 1.5,
     backgroundColor: '#FFFFFF',
   },
   inputContainerValid: {
@@ -475,8 +461,8 @@ function makeStyles(height: number) {
     paddingLeft: spacing.lg,
     paddingRight: spacing.md,
     paddingVertical: spacing.base + 4,
-    borderRightWidth: 1.5,
-    borderRightColor: '#E2E8F0',
+    borderRightWidth: 1,
+    borderRightColor: '#E5E8EE',
   },
   countryFlag: {
     width: 26,
@@ -516,22 +502,21 @@ function makeStyles(height: number) {
     marginLeft: spacing.xs,
   },
   continueButton: {
-    borderRadius: 18,
+    borderRadius: 14,
     paddingVertical: spacing.base + 4,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 58,
+    minHeight: 56,
     borderWidth: 0,
     ...Platform.select({
       ios: {
         shadowColor: '#0D9488',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 25,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
       },
-      android: {
-        elevation: 15,
-      },
+      android: { elevation: 8 },
+      default: { boxShadow: '0 8px 20px rgba(13,148,136,0.32)' } as any,
     }),
   },
   continueButtonDisabled: {
@@ -585,22 +570,11 @@ function makeStyles(height: number) {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.base + 2,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E8EE',
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
     minHeight: 54,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0D9488',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
   },
   socialButtonText: {
     fontSize: 15,

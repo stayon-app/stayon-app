@@ -801,10 +801,6 @@ export const TripsScreen: React.FC = () => {
                   <Ionicons name="chatbubble-outline" size={15} color={colors.primary} />
                   <Text style={styles.actionBtnText}>Message</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => handleReceipt(trip)}>
-                  <Ionicons name="receipt-outline" size={15} color={colors.primary} />
-                  <Text style={styles.actionBtnText}>Receipt</Text>
-                </TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtnDanger} onPress={() => handleCancel(trip)}>
                   <Ionicons name="close-circle-outline" size={15} color={colors.error} />
                   <Text style={styles.actionBtnDangerText}>Cancel</Text>
@@ -828,10 +824,6 @@ export const TripsScreen: React.FC = () => {
                     <Text style={styles.reviewedText}>Reviewed</Text>
                   </View>
                 ))}
-                <TouchableOpacity style={styles.actionBtn} onPress={() => handleReceipt(trip)}>
-                  <Ionicons name="receipt-outline" size={15} color={colors.primary} />
-                  <Text style={styles.actionBtnText}>Receipt</Text>
-                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.actionBtn}
                   onPress={() => navigation.navigate('PropertyDetails', {

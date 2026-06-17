@@ -9,11 +9,58 @@ export default function App() {
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('ops_theme', theme); }, [theme]);
   const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
+  // Splash plays once per browser session, then hands off to login/shell.
+  const [booted, setBooted] = useState<boolean>(() => sessionStorage.getItem('ops_splash_seen') === '1');
+
   const [staff, setStaff] = useState<Staff | null>(() => {
     try { return JSON.parse(localStorage.getItem('ops_staff') || 'null'); } catch { return null; }
   });
+
+  if (!booted) return <Splash onFinish={() => { sessionStorage.setItem('ops_splash_seen', '1'); setBooted(true); }} />;
   if (!staff) return <Login onLogin={(s) => { localStorage.setItem('ops_staff', JSON.stringify(s)); setStaff(s); }} theme={theme} onToggleTheme={toggleTheme} />;
   return <Shell staff={staff} theme={theme} onToggleTheme={toggleTheme} onLogout={() => { OpsApi.logout(); localStorage.removeItem('ops_staff'); setStaff(null); }} />;
+}
+
+// ───────────────────────── Splash (photo carousel + glowing serif — matches guest app) ─────────────────────────
+const SPLASH_IMAGES = [
+  'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&h=1600&fit=crop&q=80', // Luxury hotel
+  'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=1200&h=1600&fit=crop&q=80', // Beach sunset
+  'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1200&h=1600&fit=crop&q=80', // Mountain cabin
+  'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=1200&h=1600&fit=crop&q=80', // Modern apartment
+  'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?w=1200&h=1600&fit=crop&q=80', // Tropical villa
+  'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=1200&h=1600&fit=crop&q=80', // Desert resort
+];
+
+function Splash({ onFinish }: { onFinish: () => void }) {
+  const [idx, setIdx] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    const carousel = setInterval(() => setIdx((i) => (i + 1) % SPLASH_IMAGES.length), 1100);
+    const finish = setTimeout(() => {
+      setLeaving(true);                       // fade the whole screen out…
+      setTimeout(onFinish, 450);              // …then hand off (soft crossfade, no hard jump)
+    }, 2600);
+    return () => { clearInterval(carousel); clearTimeout(finish); };
+  }, [onFinish]);
+
+  return (
+    <div className={`splash${leaving ? ' leaving' : ''}`}>
+      <div className="splash-bg">
+        {SPLASH_IMAGES.map((src, i) => (
+          <img key={i} className={`splash-img${i === idx ? ' on' : ''}`} src={src} alt="" draggable={false} />
+        ))}
+      </div>
+      <div className="splash-overlay" />
+      <div className="splash-content">
+        <div className="splash-brand">
+          {'StayOn'.split('').map((ch, i) => (
+            <span key={i} className="splash-letter" style={{ animationDelay: `${0.15 + i * 0.12}s` }}>{ch}</span>
+          ))}
+        </div>
+        <div className="splash-tag">OPERATIONS CONTROL</div>
+      </div>
+    </div>
+  );
 }
 
 // ───────────────────────── Login (split-screen) ─────────────────────────
