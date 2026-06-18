@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getStay, formatUSD } from '@/lib/api';
+import { getStay } from '@/lib/api';
+import { Price } from '@/components/Price';
 import { ReserveButton } from '@/components/ReserveButton';
 import type { Metadata } from 'next';
 
@@ -93,7 +94,7 @@ export default async function StayDetailPage({ params }: { params: { id: string 
         {/* Booking card */}
         <aside className="book-card">
           <div className="price-lg">
-            {formatUSD(stay.priceUSD)} <span>/ night</span>
+            <Price usd={stay.priceUSD} bold suffix="/ night" />
           </div>
           <div className="fee-note">0% platform fee · host keeps 100%</div>
           <ReserveButton />

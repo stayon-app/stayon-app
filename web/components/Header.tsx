@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { AuthButton } from './AuthButton';
+import { GlobeMenu } from './GlobeMenu';
 
 export function Header() {
   return (
@@ -9,10 +11,11 @@ export function Header() {
           <span className="brand-tag">stay beyond ordinary</span>
         </Link>
         <div className="header-actions">
-          <span className="fee-pill">0% fee · keep 100%</span>
-          <Link href="/search" className="btn btn-ghost">
-            Explore stays
+          <Link href="/host" className="host-link">
+            Become a host
           </Link>
+          <GlobeMenu />
+          <AuthButton />
         </div>
       </div>
     </header>
