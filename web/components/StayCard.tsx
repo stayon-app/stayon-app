@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Listing } from '@/lib/types';
-import { formatUSD } from '@/lib/api';
+import { Price } from './Price';
 
 export function StayCard({ stay }: { stay: Listing }) {
   const photo = stay.images?.[0];
@@ -27,7 +27,7 @@ export function StayCard({ stay }: { stay: Listing }) {
           {stay.country ? `, ${stay.country}` : ''}
         </div>
         <div className="price">
-          <b>{formatUSD(stay.priceUSD)}</b> <span>night · 0% fee</span>
+          <Price usd={stay.priceUSD} bold suffix="night · 0% fee" />
         </div>
       </div>
     </Link>

@@ -26,7 +26,12 @@ export default async function SearchPage({
     <section className="section">
       <div className="container">
         <div style={{ marginBottom: 32 }}>
-          <SearchBar initialQ={searchParams.q || ''} initialGuests={searchParams.guests || ''} />
+          <SearchBar
+            initialQ={searchParams.q || ''}
+            initialGuests={searchParams.guests || ''}
+            initialCheckIn={searchParams.checkIn || ''}
+            initialCheckOut={searchParams.checkOut || ''}
+          />
         </div>
 
         <div className="section-head">

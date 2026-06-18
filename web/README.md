@@ -21,9 +21,13 @@ with `cd backend && npm start`.
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `API_BASE` | `http://localhost:4000/v1` | The StayOn backend API base. Set to your deployed backend in production, e.g. `https://stayon-backend.onrender.com/v1`. |
+| `API_BASE` | `http://localhost:4000/v1` | Backend base used by **Server Components** (browse/search/detail, server-side fetch). |
+| `NEXT_PUBLIC_API_BASE` | `http://localhost:4000/v1` | Backend base used by the **browser** for auth/booking (login, OTP, profile). Must be public. |
 
-Set it in `.env.local` for dev, or in the Vercel dashboard for production.
+Set both in `.env.local` for dev, or in the Vercel dashboard for production
+(point them at your deployed backend). Login/signup reuse the **same** backend
+auth endpoints (`send-otp`, `verify-otp`, `PUT /me`, `refresh`, `logout`) as the
+mobile app — no separate auth service.
 
 ## Structure
 
