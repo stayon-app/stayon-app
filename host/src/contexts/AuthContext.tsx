@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Api } from '../api';
 
 interface User {
   id: string;
@@ -95,6 +96,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(mockUser));
     setUser(mockUser);
+    // Open a session on the shared backend so host data syncs with guests.
+    // Best-effort: ignored if the backend isn't running (stays local-only).
+    try { await Api.auth.login(`${dialCode}${phone}`, 'Host', countryCode); } catch { /* offline → local */ }
   };
 
   const logout = async () => {

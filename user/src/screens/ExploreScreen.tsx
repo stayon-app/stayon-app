@@ -45,6 +45,7 @@ import {
 } from 'react-native';
 import { Image as ExpoImage } from 'expo-image';
 import { EXPLORE_DESTINATIONS } from '../data/exploreDestinations';
+import { WikiImage } from '../components/WikiImage';
 import { getHostListingsAsProperties } from '../data/hostListings';
 import { LIGHT_MAP_STYLE } from '../utils/mapStyle';
 import { Reveal } from '../components/Reveal';
@@ -170,6 +171,7 @@ interface Experience {
 interface Blog {
   id: string;
   image: string;
+  wikiTitle?: string;        // real photo subject (place / topic) for WikiImage
   title: string;
   category: string;          // Travel Guide / Local Insights / Food & Culture / ...
   excerpt: string;           // short summary line
@@ -421,12 +423,28 @@ const generateBlogs = (count: number, offset: number = 0, locationName: string =
   const dates = ['May 12, 2026', 'Apr 28, 2026', 'May 03, 2026', 'May 20, 2026', 'Apr 15, 2026',
     'May 08, 2026', 'Apr 22, 2026', 'May 16, 2026', 'Apr 30, 2026', 'May 24, 2026'];
 
+  // Real photo subject per article (matches the topic) — fetched via WikiImage.
+  // Wikipedia pages used here all carry images, so the picture always fits the post.
+  const wikiTitles = [
+    locationName,              // Hidden gems → the place itself
+    locationName,              // Culture guide → the place
+    'Street food',             // Street food
+    locationName,              // Itinerary → the place
+    'Shopping',                // Luxury shopping
+    locationName,              // Family activities → the place
+    'Backpacking (travel)',    // On a budget
+    'Beach',                   // Best beaches
+    'Cuisine',                 // Traditional cuisine
+    'Nightlife',               // Nightlife
+  ];
+
   return Array.from({ length: count }, (_, i) => {
     const index = (i + offset) % titles.length;
     const imageIndex = (i + offset) % PLACEHOLDER_IMAGES.length;
     return {
       id: `blog-${offset + i + 1}`,
       image: PLACEHOLDER_IMAGES[imageIndex],
+      wikiTitle: wikiTitles[index],
       title: titles[index],
       category: categories[index],
       excerpt: excerpts[index],
@@ -538,12 +556,7 @@ const BlogCard: React.FC<{
   return (
     <TouchableOpacity style={s.blogCard} activeOpacity={0.9} onPress={onPress}>
       <View style={s.blogImageWrap}>
-        <ExpoImage
-          source={{ uri: blog.image }}
-          style={s.blogImage}
-          contentFit="cover"
-          transition={200}
-        />
+        <WikiImage title={blog.wikiTitle} fallback={blog.image} style={s.blogImage} />
         <View style={[s.categoryTag, { backgroundColor: tint }]}>
           <Text style={s.categoryTagText}>{blog.category}</Text>
         </View>
@@ -1240,7 +1253,7 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ navigation, route 
                   activeOpacity={0.9}
                   onPress={() => { haptics.light(); navigation.navigate('DestinationDetails', { destinationId: d.id, name: d.city, country: d.country, image: d.image }); }}
                 >
-                  <ExpoImage source={{ uri: d.image }} style={styles.destImg} contentFit="cover" />
+                  <WikiImage title={d.city} fallback={d.image} style={styles.destImg} />
                   <LinearGradient colors={['transparent', 'rgba(0,0,0,0.82)']} style={styles.destOverlay}>
                     <Text style={styles.destCity} numberOfLines={1}>{d.city}</Text>
                     <Text style={styles.destCountry} numberOfLines={1}>{d.country}</Text>

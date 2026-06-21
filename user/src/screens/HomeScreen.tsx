@@ -37,6 +37,9 @@ import { sortByDistance } from '../utils/distance';
 import { getPendingBooking, clearPendingBooking, type PendingBooking } from '../data/pendingBooking';
 import { getRecentlyViewed, type RecentStay } from '../data/recentlyViewed';
 import { buildThingsToDo } from '../data/thingsToDo';
+import { homeContentFor } from '../data/homeContent';
+import { generateLocalStays } from '../data/genStays';
+import { WikiImage } from '../components/WikiImage';
 import { getFeedReels, type Reel } from '../data/reels';
 import { isFeatureEnabled } from '../services/featureFlags';
 import { getHostListingsAsProperties } from '../data/hostListings';
@@ -201,11 +204,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     },
   ];
 
-  // "Nearby You": real stays sorted by distance from the user's live location,
-  // narrowed by the selected category pill AND any applied filters.
+  // Stays located in the visitor's own country, clustered at their coordinates, so
+  // the home feed shows local stays (e.g. India) — not foreign listings.
+  const localStays = useMemo(
+    () => generateLocalStays(location, 10),
+    [location.city, location.country, location.latitude, location.longitude],
+  );
+
+  // "Nearby You": stays sorted by distance from the user's live location (local
+  // country stays cluster to the top), narrowed by category pill AND filters.
   const nearbyStays = useMemo(() => {
     const matches = categoryMatchers[selectedCategory] ?? (() => true);
-    const pool = BOT_STAYS.filter(matches);
+    const pool = [...localStays, ...BOT_STAYS].filter(matches);
     const ranked = sortByDistance(
       pool,
       { latitude: location.latitude, longitude: location.longitude },
@@ -216,7 +226,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       distanceLabel: s.distanceLabel,
     }));
     return applyStayFilters(mapped, stayFilters).slice(0, 6) as Property[];
-  }, [selectedCategory, location.latitude, location.longitude, stayFilters]);
+  }, [selectedCategory, location.latitude, location.longitude, stayFilters, localStays]);
+
+  // Guest Favorites — also drawn from the visitor's country.
+  const guestFavorites = useMemo(
+    () => localStays.map(botStayToProperty).slice(0, 4) as Property[],
+    [localStays],
+  );
 
   // Real published host listings, surfaced at the front of the feed so a host's
   // own place appears to guests (with its real "Meet your host" + guidebook).
@@ -321,104 +337,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     },
   ];
 
-  const popularDestinations = [
-    {
-      id: 'dest1',
-      city: 'Los Angeles',
-      country: 'USA',
-      image: 'https://images.unsplash.com/photo-1444723121867-7a241cacace9?w=800&h=600&fit=crop',
-      properties: '2,400+',
-      description: 'Sunshine & city glamour',
-    },
-    {
-      id: 'dest2',
-      city: 'Miami',
-      country: 'USA',
-      image: 'https://images.unsplash.com/photo-1535498730771-e735b998cd64?w=800&h=600&fit=crop',
-      properties: '3,200+',
-      description: 'Beaches & art deco',
-    },
-    {
-      id: 'dest3',
-      city: 'London',
-      country: 'UK',
-      image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=800&h=600&fit=crop',
-      properties: '1,800+',
-      description: 'Timeless & elegant',
-    },
-    {
-      id: 'dest4',
-      city: 'Paris',
-      country: 'France',
-      image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800&h=600&fit=crop',
-      properties: '2,100+',
-      description: 'The city of lights',
-    },
-    {
-      id: 'dest5',
-      city: 'Santorini',
-      country: 'Greece',
-      image: 'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=800&h=600&fit=crop',
-      properties: '1,200+',
-      description: 'Stunning sunsets & beaches',
-    },
-    {
-      id: 'dest6',
-      city: 'New York',
-      country: 'USA',
-      image: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800&h=600&fit=crop',
-      properties: '5,600+',
-      description: 'The city that never sleeps',
-    },
-    {
-      id: 'dest7',
-      city: 'San Francisco',
-      country: 'USA',
-      image: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=800&h=600&fit=crop',
-      properties: '890+',
-      description: 'Bay views & cable cars',
-    },
-    {
-      id: 'dest8',
-      city: 'Barcelona',
-      country: 'Spain',
-      image: 'https://images.unsplash.com/photo-1562883676-8c7feb83f09b?w=800&h=600&fit=crop',
-      properties: '2,800+',
-      description: 'Art, culture & beaches',
-    },
-    {
-      id: 'dest9',
-      city: 'Rome',
-      country: 'Italy',
-      image: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800&h=600&fit=crop',
-      properties: '1,500+',
-      description: 'Ancient history & charm',
-    },
-    {
-      id: 'dest10',
-      city: 'Vancouver',
-      country: 'Canada',
-      image: 'https://images.unsplash.com/photo-1559511260-66a654ae982a?w=800&h=600&fit=crop',
-      properties: '2,300+',
-      description: 'Mountains meet the sea',
-    },
-    {
-      id: 'dest11',
-      city: 'Chicago',
-      country: 'USA',
-      image: 'https://images.unsplash.com/photo-1494522855154-9297ac14b55f?w=800&h=600&fit=crop',
-      properties: '1,900+',
-      description: 'Architecture & lakefront',
-    },
-    {
-      id: 'dest12',
-      city: 'Amsterdam',
-      country: 'Netherlands',
-      image: 'https://images.unsplash.com/photo-1534351590666-13e3e96b5017?w=800&h=600&fit=crop',
-      properties: '1,600+',
-      description: 'Canals & culture',
-    },
-  ];
+  // Popular Destinations — geo-personalised to the user's detected country.
+  const popularDestinations = useMemo(() => homeContentFor(location.country).destinations, [location.country]);
 
   // Things to Do — dynamic to the user's live location. Purely informational
   // inspiration (no host, no price, no booking). Rich detail lives in data.
@@ -527,44 +447,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     },
   ];
 
-  const travelStories = [
-    {
-      id: 'story1',
-      title: '10 Hidden Gems on the California Coast',
-      category: 'TRAVEL TIPS',
-      excerpt: 'Discover breathtaking locations off the beaten path...',
-      author: 'Sarah Chen',
-      date: '2 days ago',
-      image: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop',
-    },
-    {
-      id: 'story2',
-      title: 'A Week in California: Complete Guide',
-      category: 'DESTINATION',
-      excerpt: 'Everything you need to know for a perfect coastal escape...',
-      author: 'Michael Torres',
-      date: '5 days ago',
-      image: 'https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=800&h=600&fit=crop',
-    },
-    {
-      id: 'story3',
-      title: 'European Food Tour: Best Cities to Visit',
-      category: 'FOOD & CULTURE',
-      excerpt: 'From Italian pasta to Spanish tapas, explore the flavors...',
-      author: 'Emma Wilson',
-      date: '1 week ago',
-      image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&h=600&fit=crop',
-    },
-    {
-      id: 'story4',
-      title: 'Budget Travel: Exploring Europe Under $50/Day',
-      category: 'BUDGET TIPS',
-      excerpt: 'Practical tips for traveling through Europe without breaking...',
-      author: 'Alex Kumar',
-      date: '2 weeks ago',
-      image: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&h=600&fit=crop',
-    },
-  ];
+  // Travel Stories — geo-personalised to the user's detected country.
+  const travelStories = useMemo(() => homeContentFor(location.country).stories, [location.country]);
 
   const handleSearchApply = (filters: SearchFilters) => {
     setSearchFilters(filters);
@@ -867,52 +751,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </Reveal>
         )}
 
-        {/* Curated Collections */}
-        <Reveal delay={460} mode="rise" style={styles.section}>
-          <View style={styles.curatedHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sectionTitle}>Curated Collections</Text>
-              <Text style={[styles.sectionSubtitle, { marginBottom: 0 }]}>Handpicked by our travel experts</Text>
-            </View>
-            <LinearGradient colors={STAYON_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.curatedHeaderBadge}>
-              <Ionicons name="sparkles" size={16} color="#fff" />
-            </LinearGradient>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.curatedScroll}
-          >
-            {[
-              { id: 'c1', title: "World's Most\nEpic Pools", count: 24, tag: 'Editor’s pick', img: 'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=500&h=680&fit=crop' },
-              { id: 'c2', title: 'Hidden Gems\nUnder $100', count: 47, tag: 'Budget', img: 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=500&h=680&fit=crop' },
-              { id: 'c3', title: 'Eco-Certified\nStays', count: 18, tag: 'Sustainable', img: 'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=500&h=680&fit=crop' },
-            ].map((col) => (
-              <TouchableOpacity key={col.id} style={styles.curatedCard} onPress={() => light()} activeOpacity={0.92}>
-                <Image source={{ uri: col.img }} style={styles.curatedImg} resizeMode="cover" />
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.88)']}
-                  style={styles.curatedShade}
-                />
-                <View style={styles.curatedTopRow}>
-                  <View style={styles.curatedTag}>
-                    <Text style={styles.curatedTagText}>{col.tag}</Text>
-                  </View>
-                </View>
-                <View style={styles.curatedBottom}>
-                  <Text style={styles.curatedTitle}>{col.title}</Text>
-                  <View style={styles.curatedMetaRow}>
-                    <View style={styles.curatedCountPill}>
-                      <Text style={styles.curatedCountText}>{col.count} stays</Text>
-                    </View>
-                    <Text style={styles.curatedUpdated}>Updated today</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </Reveal>
-
         {/* Guest Favorites Section */}
         <Reveal delay={540} mode="rise" style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -926,7 +764,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalScroll}
           >
-            {nearbyProperties.slice(0, 2).map((property) => (
+            {guestFavorites.slice(0, 2).map((property) => (
               <View key={property.id} style={styles.horizontalCard}>
                 <PropertyCard
                   property={property}
@@ -961,9 +799,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 key={dest.id}
                 style={styles.destinationCard}
                 activeOpacity={0.9}
-                onPress={() => { light(); navigation.navigate('DestinationDetails', { destinationId: dest.id }); }}
+                onPress={() => { light(); navigation.navigate('DestinationDetails', { destinationId: dest.id, city: dest.city, country: dest.country, image: dest.image }); }}
               >
-                <Image source={{ uri: dest.image }} style={styles.destinationImage} resizeMode="cover" />
+                <WikiImage title={dest.city} fallback={dest.image} style={styles.destinationImage} />
                 <View style={styles.destinationOverlay}>
                   <Text style={styles.destinationCity}>{dest.city}</Text>
                   <Text style={styles.destinationCountry}>{dest.country}</Text>
@@ -1005,7 +843,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 activeOpacity={0.9}
                 onPress={() => { light(); navigation.navigate('ActivityDetails', { activityId: activity.id, activity }); }}
               >
-                <Image source={{ uri: activity.image }} style={styles.activityImage} resizeMode="cover" />
+                <WikiImage title={activity.city} fallback={activity.image} style={styles.activityImage} />
                 <View style={styles.activityInfo}>
                   <View style={styles.activityBadge}>
                     <Text style={styles.activityBadgeText}>{activity.category}</Text>

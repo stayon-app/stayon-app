@@ -43,7 +43,7 @@ export function TripsScreen() {
 
 /* ───────────────────────── Profile ───────────────────────── */
 export function ProfileScreen() {
-  const { user, navigate, logout, favs, bookings, enterHost, showToast } = useApp();
+  const { user, navigate, logout, favs, bookings, showToast } = useApp();
   const saved = STAYS.filter((s) => favs.has(s.id));
 
   if (!user) {
@@ -82,7 +82,7 @@ export function ProfileScreen() {
       </div>
 
       <div className="profile-menu">
-        {[['briefcase', 'My trips', () => navigate('trips')], ['heart', 'Wishlist', () => document.getElementById('wishlist')?.scrollIntoView({ behavior: 'smooth' })], ['card', 'Payments & payouts', () => showToast('Payments & payouts — coming soon')], ['bell', 'Notifications', () => showToast('Notification settings — coming soon')], ['globe', 'Language & currency', () => showToast('Currently showing USD · more soon')], ['grid', 'Switch to hosting', () => enterHost()], ['buoy', 'Help centre', () => showToast('Help centre — coming soon')]].map(([i, t, fn]: any) => (
+        {[['briefcase', 'My trips', () => navigate('trips')], ['heart', 'Wishlist', () => document.getElementById('wishlist')?.scrollIntoView({ behavior: 'smooth' })], ['card', 'Payments & payouts', () => showToast('Payments & payouts — coming soon')], ['bell', 'Notifications', () => showToast('Notification settings — coming soon')], ['globe', 'Language & currency', () => showToast('Currently showing USD · more soon')], ['grid', 'Switch to hosting', () => navigate('host-today')], ['buoy', 'Help centre', () => showToast('Help centre — coming soon')]].map(([i, t, fn]: any) => (
           <button key={t} className="profile-row" onClick={fn}><span className="profile-row-ico"><Icon name={i} size={20} /></span> {t} <Icon name="chevR" size={16} /></button>
         ))}
       </div>

@@ -16,6 +16,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Skeleton } from '../components/common';
 import { useHaptics } from '../hooks/useHaptics';
+import { WikiImage } from '../components/WikiImage';
+import { attractionsFor } from '../data/attractions';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
@@ -60,8 +62,26 @@ export const DestinationDetailsScreen: React.FC = () => {
   const haptics = useHaptics();
   const styles = makeStyles(colors);
 
-  const [activeTab, setActiveTab] = useState<TabType>('properties');
+  const [activeTab, setActiveTab] = useState<TabType>('places');
   const [isSaved, setIsSaved] = useState(false);
+
+  // Real destination from the card the user tapped (falls back to the mock).
+  const place: string = route.params?.city || mockDestination.name;
+  const placeCountry: string = route.params?.country || mockDestination.country;
+  const heroFallback: string = route.params?.image || mockDestination.heroImage;
+  const places = attractionsFor(place);
+  const [intro, setIntro] = useState(mockDestination.description);
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(place)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d && d.extract) setIntro(d.extract); })
+      .catch(() => { /* keep default */ });
+    return () => { alive = false; };
+  }, [place]);
+
+  const searchStays = () => { haptics.light(); navigation.navigate('Main', { screen: 'ExploreTab' }); };
 
   // Brief on-mount skeleton so the hero/content eases in instead of popping.
   const [isLoading, setIsLoading] = useState(true);
@@ -159,28 +179,23 @@ export const DestinationDetailsScreen: React.FC = () => {
       case 'places':
         return (
           <View style={styles.tabContent}>
-            {[1, 2, 3, 4].map((_, index) => (
-              <TouchableOpacity 
-                key={index} 
-                style={styles.placeCard}
-                onPress={() => navigation.navigate('PlaceDetails', { placeId: index })}
-              >
-                <Image 
-                  source={{ uri: `https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=400` }} 
-                  style={styles.placeImage}
-                />
+            {places.length === 0 && (
+              <Text style={styles.destinationDescription}>Explore the top sights and neighbourhoods of {place}.</Text>
+            )}
+            {places.map((p) => (
+              <View key={p.name} style={styles.placeCard}>
+                <WikiImage title={p.name} fallback={heroFallback} style={styles.placeImage} />
                 <View style={styles.placeOverlay}>
                   <View style={styles.placeType}>
-                    <Text style={styles.placeTypeText}>Monument</Text>
+                    <Text style={styles.placeTypeText}>Must visit</Text>
                   </View>
-                  <Text style={styles.placeTitle}>Empire State Building</Text>
+                  <Text style={styles.placeTitle}>{p.name}</Text>
                   <View style={styles.placeStats}>
-                    <Ionicons name="star" size={16} color="#FFFFFF" />
-                    <Text style={styles.placeRating}>4.7</Text>
-                    <Text style={styles.placeVisitors}>• 17M+ visitors</Text>
+                    <Ionicons name="location" size={15} color="#FFFFFF" />
+                    <Text style={styles.placeVisitors}>{p.blurb}</Text>
                   </View>
                 </View>
-              </TouchableOpacity>
+              </View>
             ))}
           </View>
         );

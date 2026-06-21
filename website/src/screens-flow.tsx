@@ -1,32 +1,63 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useApp, nightsBetween, priceBreakdown, makeBookingCode, DIAL_CURRENCY } from './store';
-import { Icon, GradientButton, Logo } from './ui';
+import { useApp, nightsBetween, priceBreakdown, makeBookingCode, COUNTRY_CURRENCY } from './store';
+import { Icon, GradientButton, Logo, Calendar, CountrySelect, GoogleG } from './ui';
 import { stayById } from './data';
+import { idTypesForCountry, countryByIso2 } from './countries';
+import { api } from './api';
 
 /* ═══════════════════════════ AUTH (phone → OTP → account) ═══════════════════════════ */
 export function AuthScreen() {
-  const { navigate, login, pending, setPending, setCurrency } = useApp();
-  const [step, setStep] = useState<'enter' | 'otp' | 'account'>('enter');
+  const { navigate, login, pending, setPending, setCurrency, country, getHostAccount, getVerified, verifyIdentity } = useApp();
+  const [step, setStep] = useState<'enter' | 'otp' | 'account' | 'identity'>('enter');
   const [mode, setMode] = useState<'phone' | 'email'>('phone');
   const [value, setValue] = useState('');
-  const [dial, setDial] = useState('+1');
-  const COUNTRIES = [['+1', 'US'], ['+91', 'India'], ['+44', 'UK'], ['+33', 'France'], ['+49', 'Germany']];
+  // Pre-select the auto-detected country (ISO-2 from IP/timezone); currency follows it.
+  const [iso2, setIso2] = useState(() => (country || 'US').toLowerCase());
+  const curOf = (i: string) => COUNTRY_CURRENCY[i.toUpperCase()] || 'USD';
+  // Hosting requires the same verified login as a guest: phone/email → OTP → profile.
+  const hostFlow = !!pending && pending.name.startsWith('host');
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [err, setErr] = useState('');
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
   const [email, setEmail] = useState('');
+  // Identity verification (mandatory for new users before booking / publishing)
+  const [dob, setDob] = useState('');
+  const [idType, setIdType] = useState('passport');
+  const [docNumber, setDocNumber] = useState('');
+  const [docFront, setDocFront] = useState('');
+  const [docBack, setDocBack] = useState('');
+  // Documents depend on the login country (passport is universal). Some are single-sided.
+  const idList = idTypesForCountry(iso2);
+  const idDoc = idList.find((t) => t.id === idType) || idList[0];
+  const singleSided = !!idDoc?.single;
+  const countryName = countryByIso2(iso2)?.name || 'your country';
+  // Keep the selected document valid when the country changes.
+  useEffect(() => { if (!idList.some((t) => t.id === idType)) setIdType('passport'); }, [iso2]); // eslint-disable-line
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const legalName = `${first} ${last}`.trim();
 
   const validEntry = mode === 'phone'
     ? value.replace(/\D/g, '').length >= 6 && value.replace(/\D/g, '').length <= 14
     : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
-  const finish = () => {
-    login({ name: `${first} ${last}`.trim() || 'Guest', identifier: value });
-    setCurrency(mode === 'phone' ? (DIAL_CURRENCY[dial] || 'USD') : 'USD');
+  // Final step — log in, set currency, and route to the pending destination.
+  const finishWith = (name: string) => {
+    const ident = value;
+    login({ name: name || 'Guest', identifier: ident });
+    api.loginPhone(ident, name || 'Guest', iso2.toUpperCase()); // best-effort backend session
+    setCurrency(mode === 'phone' ? curOf(iso2) : 'USD');
     const dest = pending; setPending(null);
-    if (dest) navigate(dest.name, dest.params); else navigate('home');
+    // Host entry: open the dashboard if this person already has a host account,
+    // otherwise send them into Get started → listing wizard.
+    if (dest && dest.name.startsWith('host')) {
+      const acct = getHostAccount(ident);
+      navigate(acct?.verified ? 'host-today' : 'host-create');
+    } else if (dest) {
+      navigate(dest.name, dest.params);
+    } else {
+      navigate('home');
+    }
   };
 
   const goEnter = () => { if (validEntry) { setErr(''); setStep('otp'); } };
@@ -36,10 +67,23 @@ export function AuthScreen() {
     if (v && i < 5) otpRefs.current[i + 1]?.focus();
   };
   const verify = () => {
-    if (code.join('').length === 6) { setErr(''); setStep('account'); }
-    else setErr('Enter the complete 6-digit code');
+    if (code.join('').length !== 6) { setErr('Enter the complete 6-digit code'); return; }
+    setErr('');
+    // Returning, already-verified person → straight in with their existing details.
+    const existing = getVerified(value);
+    if (existing) finishWith(existing.name);
+    else setStep('account');
   };
-  const validAccount = first.trim() && last.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const validAccount = !!(first.trim() && last.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+  const validIdentity = legalName.length > 1 && !!dob && docNumber.trim().length >= 4 && !!docFront && (singleSided || !!docBack);
+  // New user: verify identity, persist it, then continue.
+  const submitIdentity = () => {
+    verifyIdentity(value, legalName, idType);
+    // Best-effort: record the KYC submission to the backend (Ops review queue).
+    api.loginPhone(value, legalName, iso2.toUpperCase()).then(() =>
+      api.submitIdentity({ legalName, idType, idNumber: docNumber, dob, country: iso2.toUpperCase(), docFront, docBack }));
+    finishWith(legalName);
+  };
 
   return (
     <div className="auth">
@@ -49,27 +93,25 @@ export function AuthScreen() {
 
         {step === 'enter' && (
           <>
-            <h1>Welcome back</h1>
-            <p className="auth-sub">Log in or sign up to book your stay.</p>
+            <h1>{hostFlow ? 'Host with StayOn' : 'Welcome back'}</h1>
+            <p className="auth-sub">{hostFlow ? 'Log in or sign up — we verify every host before listing.' : 'Log in or sign up to book your stay.'}</p>
             <div className="auth-field">
-              {mode === 'phone' && (
-                <select className="auth-dial" value={dial} onChange={(e) => setDial(e.target.value)}>
-                  {COUNTRIES.map(([d, name]) => <option key={d} value={d}>{name} {d}</option>)}
-                </select>
-              )}
+              {mode === 'phone' && <CountrySelect value={iso2} onChange={setIso2} />}
               <input autoFocus value={value} onChange={(e) => setValue(e.target.value)}
                 placeholder={mode === 'phone' ? 'Phone number' : 'Email address'}
                 type={mode === 'phone' ? 'tel' : 'email'}
                 onKeyDown={(e) => e.key === 'Enter' && goEnter()} />
             </div>
-            <p className="auth-helper">A secure code will arrive shortly{mode === 'phone' ? ` · prices shown in ${DIAL_CURRENCY[dial] || 'USD'}` : ''}</p>
+            <p className="auth-helper">A secure code will arrive shortly{mode === 'phone' ? ` · prices shown in ${curOf(iso2)}` : ''}</p>
             <GradientButton full disabled={!validEntry} onClick={goEnter}>Continue</GradientButton>
             <button className="auth-switch" onClick={() => { setMode((m) => (m === 'phone' ? 'email' : 'phone')); setValue(''); }}>
               {mode === 'phone' ? 'Use email instead' : 'Use phone number instead'}
             </button>
             <div className="auth-or"><span>or</span></div>
-            <button className="auth-social" onClick={() => { setValue('google_user'); setStep('otp'); }}><Icon name="google" size={18} /> Continue with Google</button>
-            <button className="auth-social" onClick={() => { setValue('apple_user'); setStep('otp'); }}><Icon name="apple" size={18} /> Continue with Apple</button>
+            <div className="auth-social-row">
+              <button className="auth-social-ic" aria-label="Continue with Google" onClick={() => { setValue('google_user'); setStep('otp'); }}><GoogleG size={24} /></button>
+              <button className="auth-social-ic auth-apple" aria-label="Continue with Apple" onClick={() => { setValue('apple_user'); setStep('otp'); }}><Icon name="apple" size={24} /></button>
+            </div>
           </>
         )}
 
@@ -94,8 +136,8 @@ export function AuthScreen() {
 
         {step === 'account' && (
           <>
-            <h1>Begin your journey</h1>
-            <p className="auth-sub">Craft your story, unlock extraordinary stays.</p>
+            <h1>{hostFlow ? 'Set up your host profile' : 'Begin your journey'}</h1>
+            <p className="auth-sub">{hostFlow ? 'Your number is verified — add your details to start listing.' : 'Craft your story, unlock extraordinary stays.'}</p>
             <label className="auth-label">Legal name</label>
             <div className="auth-namerow">
               <input placeholder="First name" value={first} onChange={(e) => setFirst(e.target.value)} />
@@ -104,7 +146,47 @@ export function AuthScreen() {
             <label className="auth-label">Email</label>
             <div className="auth-field"><input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
             <p className="auth-terms">By selecting Agree and continue, I agree to StayOn's Terms of Service and Payments Terms, and acknowledge the Privacy Policy.</p>
-            <GradientButton full disabled={!validAccount} onClick={finish}>Agree and continue</GradientButton>
+            <GradientButton full disabled={!validAccount} onClick={() => setStep('identity')}>Agree and continue</GradientButton>
+          </>
+        )}
+
+        {step === 'identity' && (
+          <>
+            <div className="auth-shield"><Icon name="id" size={26} /></div>
+            <h1>Verify your identity</h1>
+            <p className="auth-sub">{hostFlow ? 'Every host is verified before listing.' : 'A one-time check — required before you can book.'} Encrypted and never shown to others.</p>
+            <label className="auth-label">Legal name (as on your ID)</label>
+            <div className="auth-field"><input value={legalName} readOnly /></div>
+            <label className="auth-label">Date of birth</label>
+            <div className="auth-field"><input type="date" value={dob} onChange={(e) => setDob(e.target.value)} /></div>
+            <label className="auth-label">Document type <span className="auth-label-hint">· for {countryName}</span></label>
+            <div className="auth-field auth-select">
+              <select value={idType} onChange={(e) => setIdType(e.target.value)}>
+                {idList.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+              <Icon name="chevD" size={16} />
+            </div>
+            <label className="auth-label">Document number</label>
+            <div className="auth-field"><input placeholder="ID / document number" value={docNumber} onChange={(e) => setDocNumber(e.target.value)} /></div>
+            <label className="auth-label">Upload document {singleSided ? '(photo page)' : '(front & back)'}</label>
+            <div className="auth-uploads">
+              <label className={`auth-upload${docFront ? ' done' : ''}`}>
+                <input type="file" accept="image/*,application/pdf" hidden onChange={(e) => setDocFront(e.target.files?.[0]?.name || '')} />
+                {docFront
+                  ? <><Icon name="check" size={17} /> <span className="auth-upload-name">{docFront}</span></>
+                  : <><Icon name="camera" size={17} /> {singleSided ? 'Upload photo page' : 'Front side'}</>}
+              </label>
+              {!singleSided && (
+                <label className={`auth-upload${docBack ? ' done' : ''}`}>
+                  <input type="file" accept="image/*,application/pdf" hidden onChange={(e) => setDocBack(e.target.files?.[0]?.name || '')} />
+                  {docBack
+                    ? <><Icon name="check" size={17} /> <span className="auth-upload-name">{docBack}</span></>
+                    : <><Icon name="camera" size={17} /> Back side</>}
+                </label>
+              )}
+            </div>
+            <p className="auth-terms"><Icon name="lock" size={13} /> Encrypted &amp; stored securely. We only keep the last 4 digits and a copy of your document.</p>
+            <GradientButton full disabled={!validIdentity} onClick={submitIdentity}>Verify &amp; continue</GradientButton>
           </>
         )}
       </div>
@@ -114,7 +196,7 @@ export function AuthScreen() {
 
 /* ═══════════════════════════ BOOKING WIZARD (Review → Message → Pay) ═══════════════════════════ */
 export function BookScreen() {
-  const { route, navigate, draft, setDraft, addBooking, user, money, currency } = useApp();
+  const { route, navigate, draft, setDraft, addBooking, user, isVerified, setPending, money, currency } = useApp();
   const stay = stayById(route.params?.id || draft?.stayId || '');
   const [step, setStep] = useState(0);
   const [checkIn, setCheckIn] = useState(draft?.checkIn || new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10));
@@ -132,9 +214,13 @@ export function BookScreen() {
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   useEffect(() => { if (!stay) navigate('home'); }, [stay]);
+  // Booking requires a verified identity — block direct-link access for unverified visitors.
+  useEffect(() => {
+    if (stay && (!user || !isVerified)) { setPending({ name: 'book', params: { id: stay.id } }); navigate('auth'); }
+  }, [stay, user, isVerified]);
   if (!stay) return null;
 
-  const nights = nightsBetween(checkIn, checkOut);
+  const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : 1;
   const b = priceBreakdown(stay.price, nights, promoApplied);
   const last4 = card.replace(/\D/g, '').slice(-4) || '4242';
 
@@ -164,7 +250,7 @@ export function BookScreen() {
 
   const next = () => { if (step < 2) setStep(step + 1); };
 
-  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '…';
 
   return (
     <div className="book">
@@ -197,9 +283,12 @@ export function BookScreen() {
                 <div className="book-edit-row">
                   <div><label>Dates</label><div className="book-edit-val">{fmtDate(checkIn)} – {fmtDate(checkOut)}</div></div>
                 </div>
-                <div className="book-date-inputs">
-                  <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
-                  <input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+                <div className="book-cal">
+                  <Calendar start={checkIn} end={checkOut} onPick={(id) => {
+                    if (!checkIn || (checkIn && checkOut)) { setCheckIn(id); setCheckOut(''); }
+                    else if (id < checkIn) { setCheckIn(id); }
+                    else { setCheckOut(id); }
+                  }} />
                 </div>
                 <div className="book-edit-row guests-row">
                   <div><label>Guests</label><div className="book-edit-val">{guests} guest{guests > 1 ? 's' : ''}</div></div>

@@ -2,6 +2,7 @@
 // AsyncStorage. Mirrors the guest booking shape, from the host's perspective.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Api } from '../api';
 
 export type ReservationStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 
@@ -84,6 +85,19 @@ export const SEED_RESERVATIONS: HostReservation[] = [
 ];
 
 export async function getReservations(): Promise<HostReservation[]> {
+  // Prefer the shared backend so bookings made by guests appear here. The money
+  // fields are recomputed by mk() from rate × nights. Fail-safe to local data.
+  try {
+    const r = await Api.reservations.mine();
+    if (r?.items && Array.isArray(r.items)) {
+      return r.items.map((it: any) => mk({
+        id: it.id || it.code, code: it.code, guestName: it.guestName || 'Guest',
+        status: it.status, nights: it.nights || 1, rate: it.rateUSD || 0,
+        listingId: it.listingId, listingTitle: it.listingTitle,
+        checkIn: it.checkIn, checkOut: it.checkOut, instant: it.instant,
+      }));
+    }
+  } catch { /* backend offline → local */ }
   try {
     const raw = await AsyncStorage.getItem(KEY);
     if (raw) { const p = JSON.parse(raw); if (Array.isArray(p)) return p; }

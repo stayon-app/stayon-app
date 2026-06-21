@@ -186,7 +186,7 @@ function makeStyles(colors: any) {
     letterSpacing: -0.5,
   },
   brandTextAccent: {
-    color: colors.primary,
+    color: '#06D6B4',
   },
   });
 }

@@ -1,6 +1,117 @@
-import React, { useState } from 'react';
-import { useApp } from './store';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useApp, CURRENCIES, currencyName, currencySymbol } from './store';
 import type { Stay } from './data';
+import { COUNTRIES, POPULAR_ISO2, flagUrl, countryByIso2 } from './countries';
+import { api } from './api';
+
+/* ───────────────────────── Backend status pill (live vs local mode) ───────────────────────── */
+export function BackendStatus() {
+  const [status, setStatus] = useState<'checking' | 'live' | 'local'>('checking');
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => { let alive = true; api.health().then((ok) => alive && setStatus(ok ? 'live' : 'local')); return () => { alive = false; }; }, []);
+  if (status === 'checking' || hidden) return null;
+  return (
+    <button className={`be-status ${status}`} onClick={() => setHidden(true)} title="Click to dismiss">
+      <i /> {status === 'live' ? 'Live backend' : 'Local mode'}
+    </button>
+  );
+}
+
+/* ───────────────────────── Brand logos (real, multi-colour) ───────────────────────── */
+export function GoogleG({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden>
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
+/* ───────────────────────── Phone country picker — real flags, all countries, searchable ───────────────────────── */
+export function CountrySelect({ value, onChange }: { value: string; onChange: (iso2: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const wrap = useRef<HTMLDivElement>(null);
+  const sel = countryByIso2(value) || countryByIso2('us')!;
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  const query = q.trim().toLowerCase();
+  const matches = query
+    ? COUNTRIES.filter((c) => c.name.toLowerCase().includes(query) || c.dial.includes(query) || c.iso2 === query)
+    : null;
+  const popular = POPULAR_ISO2.map((i) => countryByIso2(i)).filter(Boolean) as typeof COUNTRIES;
+
+  const pick = (iso2: string) => { onChange(iso2); setOpen(false); setQ(''); };
+  const Row = (c: { name: string; iso2: string; dial: string }) => (
+    <button type="button" key={c.iso2 + c.dial} className={`cs-row${c.iso2 === value ? ' on' : ''}`} onClick={() => pick(c.iso2)}>
+      <img className="cs-flag" src={flagUrl(c.iso2)} alt="" loading="lazy" />
+      <span className="cs-name">{c.name}</span>
+      <span className="cs-dial">{c.dial}</span>
+    </button>
+  );
+
+  return (
+    <div className="cs" ref={wrap}>
+      <button type="button" className="cs-btn" onClick={() => setOpen((o) => !o)} aria-label="Select country">
+        <img className="cs-flag" src={flagUrl(sel.iso2)} alt={sel.name} />
+        <span className="cs-dial">{sel.dial}</span>
+        <Icon name="chevD" size={14} />
+      </button>
+      {open && (
+        <div className="cs-pop">
+          <div className="cs-search">
+            <Icon name="search" size={15} />
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search country or code" />
+          </div>
+          <div className="cs-list">
+            {matches ? (
+              matches.length ? matches.map(Row) : <p className="cs-empty">No matches</p>
+            ) : (
+              <>
+                <p className="cs-label">Popular</p>
+                {popular.map(Row)}
+                <p className="cs-label">All countries</p>
+                {COUNTRIES.map(Row)}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────── Real place photos via Wikipedia REST (keyless, CORS-ok) ───────────────────────── */
+const wikiCache = new Map<string, string>();
+export function WikiImage({ title, fallback, alt, className }: { title?: string; fallback: string; alt?: string; className?: string }) {
+  const [src, setSrc] = useState(fallback);
+  useEffect(() => {
+    setSrc(fallback);
+    if (!title) return;
+    if (wikiCache.has(title)) { setSrc(wikiCache.get(title)!); return; }
+    let alive = true;
+    fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const url = d && (d.originalimage?.source || d.thumbnail?.source);
+        if (url) { wikiCache.set(title, url); if (alive) setSrc(url); }
+      })
+      .catch(() => { /* keep fallback */ });
+    return () => { alive = false; };
+  }, [title, fallback]);
+  return <img src={src} alt={alt || ''} className={className} loading="lazy" draggable={false} />;
+}
 
 /* ───────────────────────── Monochrome line-icon set (single colour, currentColor) ───────────────────────── */
 const PATHS: Record<string, React.ReactNode> = {
@@ -26,6 +137,7 @@ const PATHS: Record<string, React.ReactNode> = {
   share: <><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></>,
   bolt: <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z" />,
   play: <path d="M7 5v14l12-7Z" />,
+  sliders: <><path d="M4 6h10M4 12h4M4 18h13" /><circle cx="18" cy="6" r="2.3" /><circle cx="11" cy="12" r="2.3" /><circle cx="20" cy="18" r="2.3" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   moon2: <path d="M21 12.8A8 8 0 1 1 11.2 3a6 6 0 0 0 9.8 9.8Z" />,
   bell: <><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>,
@@ -60,6 +172,8 @@ const PATHS: Record<string, React.ReactNode> = {
   thermo: <><path d="M10 4a2 2 0 0 1 4 0v9a4 4 0 1 1-4 0Z" /><circle cx="12" cy="17" r="1.5" fill="currentColor" stroke="none" /></>,
   coffee: <><path d="M4 8h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5Z" /><path d="M17 9h2a2 2 0 0 1 0 5h-2M6 2v2M10 2v2M14 2v2" /></>,
   tv: <><rect x="3" y="5" width="18" height="12" rx="2" /><path d="M8 21h8M12 17v4" /></>,
+  bed: <><path d="M3 18V7M3 11h12a4 4 0 0 1 4 4v3M21 18v-3" /><path d="M7 11V9a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v2" /></>,
+  id: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="11" r="2" /><path d="M5.5 16a3 3 0 0 1 6 0M14 9h4M14 13h4" /></>,
   // sections / misc
   map: <><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" /><path d="M9 4v14M15 6v14" /></>,
   book: <><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z" /><path d="M4 19a2 2 0 0 1 2-2h13" /></>,
@@ -96,10 +210,22 @@ export function Icon({ name, size = 20, fill = false, className, color }: { name
 }
 
 /* ───────────────────────── Wordmark (logo image to be added later) ───────────────────────── */
-export function Logo({ onClick, host }: { onClick?: () => void; host?: boolean }) {
+// Rotating brand motif — "StayOn travelling / experiencing / vibing …"
+const STAYON_WORDS = ['travelling', 'experiencing', 'vibing', 'exploring', 'unwinding', 'wandering'];
+function RotatingWord() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((n) => (n + 1) % STAYON_WORDS.length), 2400);
+    return () => clearInterval(t);
+  }, []);
+  return <span className="brand-rot" key={i}>{STAYON_WORDS[i]}</span>;
+}
+
+export function Logo({ onClick, host, tagline }: { onClick?: () => void; host?: boolean; tagline?: boolean }) {
   return (
     <button className="brand" onClick={onClick} aria-label="StayOn home">
       <span className="brand-name">Stay<span className="brand-on">On</span></span>
+      {tagline && <span className="brand-tag"><i className="brand-dot" /><RotatingWord /></span>}
       {host && <span className="brand-host">HOST</span>}
     </button>
   );
@@ -130,8 +256,19 @@ export function Rating({ value, reviews, className }: { value: number; reviews?:
 
 /* ───────────────────────── Header / navbar (guest) ───────────────────────── */
 export function Header() {
-  const { navigate, user, route, enterHost } = useApp();
+  const { navigate, user, route, enterHost, currency } = useApp();
   const [menu, setMenu] = useState(false);
+  const [region, setRegion] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  // On home, the hero holds the big search; once it scrolls away, show a compact
+  // search pill in the header so search is always reachable.
+  useEffect(() => {
+    if (route.name !== 'home') { setScrolled(true); return; }
+    const onScroll = () => setScrolled(window.scrollY > 420);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [route.name]);
   const tabs: { name: any; label: string; icon: string }[] = [
     { name: 'home', label: 'Stays', icon: 'home' },
     { name: 'explore', label: 'Explore', icon: 'compass' },
@@ -139,22 +276,36 @@ export function Header() {
   return (
     <header className="nav">
       <div className="nav-inner">
-        <Logo onClick={() => navigate('home')} />
+        <Logo onClick={() => navigate('home')} tagline />
 
-        <nav className="nav-tabs">
-          {tabs.map((t) => (
-            <button key={t.name} className={`nav-tab${route.name === t.name ? ' on' : ''}`} onClick={() => navigate(t.name)}>
-              <Icon name={t.icon} size={18} /> {t.label}
-            </button>
-          ))}
-          <button className="nav-tab" onClick={() => navigate('explore', { tab: 'reels' })}>
-            <Icon name="film" size={18} /> Reels <i className="tag-new">NEW</i>
+        {scrolled ? (
+          <button className="nav-search" onClick={() => navigate('explore')} aria-label="Search stays">
+            <span className="nav-search-seg">Anywhere</span>
+            <span className="nav-search-div" />
+            <span className="nav-search-seg">Any week</span>
+            <span className="nav-search-div" />
+            <span className="nav-search-seg dim">Add guests</span>
+            <span className="nav-search-go"><Icon name="search" size={16} /></span>
           </button>
-        </nav>
+        ) : (
+          <nav className="nav-tabs">
+            {tabs.map((t) => (
+              <button key={t.name} className={`nav-tab${route.name === t.name ? ' on' : ''}`} onClick={() => navigate(t.name)}>
+                <Icon name={t.icon} size={18} /> {t.label}
+              </button>
+            ))}
+            <button className="nav-tab" onClick={() => navigate('explore', { tab: 'reels' })}>
+              <Icon name="film" size={18} /> Reels <i className="tag-new">NEW</i>
+            </button>
+          </nav>
+        )}
 
         <div className="nav-right">
           <button className="nav-ghost" onClick={enterHost}>Become a host</button>
-          <button className="nav-globe" aria-label="Language & currency"><Icon name="globe" size={18} /></button>
+          <button className="nav-globe" aria-label="Language & currency" onClick={() => setRegion(true)}>
+            <Icon name="globe" size={18} /> <span className="nav-cur">{currency}</span>
+          </button>
+          {region && <RegionModal onClose={() => setRegion(false)} />}
           <button className="nav-acct" onClick={() => setMenu((m) => !m)}>
             <Icon name="menu" size={16} />
             <span className="nav-av">{user ? user.name[0].toUpperCase() : <Icon name="user" size={15} />}</span>
@@ -169,7 +320,7 @@ export function Header() {
                     <button onClick={() => { setMenu(false); navigate('trips'); }}>My trips</button>
                     <button onClick={() => { setMenu(false); navigate('profile'); }}>Profile</button>
                     <div className="acct-sep" />
-                    <button className="acct-strong" onClick={() => { setMenu(false); enterHost(); }}>Switch to hosting</button>
+                    <button className="acct-strong" onClick={() => { setMenu(false); navigate('host-today'); }}>Switch to hosting</button>
                     <LogoutItem onDone={() => setMenu(false)} />
                   </>
                 ) : (
@@ -192,6 +343,71 @@ export function Header() {
 function LogoutItem({ onDone }: { onDone: () => void }) {
   const { logout } = useApp();
   return <button className="acct-danger" onClick={() => { logout(); onDone(); }}>Log out</button>;
+}
+
+/* ───────────────────────── Region modal (globe → language + currency) ───────────────────────── */
+const RM_LANGS = [
+  { lang: 'English', region: 'United States' }, { lang: 'English', region: 'United Kingdom' }, { lang: 'English', region: 'India' }, { lang: 'English', region: 'Australia' },
+  { lang: 'हिन्दी', region: 'भारत' }, { lang: 'తెలుగు', region: 'భారత్' }, { lang: 'தமிழ்', region: 'இந்தியா' }, { lang: 'বাংলা', region: 'ভারত' }, { lang: 'मराठी', region: 'भारत' },
+  { lang: 'Français', region: 'France' }, { lang: 'Español', region: 'España' }, { lang: 'Español', region: 'México' }, { lang: 'Deutsch', region: 'Deutschland' },
+  { lang: 'Italiano', region: 'Italia' }, { lang: 'Português', region: 'Brasil' }, { lang: 'Português', region: 'Portugal' }, { lang: 'Nederlands', region: 'Nederland' },
+  { lang: '日本語', region: '日本' }, { lang: '한국어', region: '대한민국' }, { lang: '中文', region: '中国' }, { lang: '繁體中文', region: '台灣' },
+  { lang: 'العربية', region: 'الإمارات' }, { lang: 'العربية', region: 'السعودية' }, { lang: 'Türkçe', region: 'Türkiye' }, { lang: 'Русский', region: 'Россия' },
+  { lang: 'ไทย', region: 'ประเทศไทย' }, { lang: 'Tiếng Việt', region: 'Việt Nam' }, { lang: 'Bahasa', region: 'Indonesia' }, { lang: 'Bahasa', region: 'Malaysia' },
+  { lang: 'Polski', region: 'Polska' }, { lang: 'Svenska', region: 'Sverige' }, { lang: 'Ελληνικά', region: 'Ελλάδα' }, { lang: 'עברית', region: 'ישראל' },
+];
+
+export function RegionModal({ onClose }: { onClose: () => void }) {
+  const { currency, setCurrency, showToast } = useApp();
+  const [tab, setTab] = useState<'lang' | 'cur'>('cur');
+  const [lang, setLang] = useState('English · India');
+  const [translate, setTranslate] = useState(true);
+  // Portal to <body> — the nav's backdrop-filter would otherwise trap position:fixed.
+  return createPortal((
+    <div className="rm-bg" onClick={onClose}>
+      <div className="rm" onClick={(e) => e.stopPropagation()}>
+        <div className="rm-head">
+          <button className="rm-x" onClick={onClose} aria-label="Close"><Icon name="close" size={20} /></button>
+          <div className="rm-tabs">
+            <button className={tab === 'lang' ? 'on' : ''} onClick={() => setTab('lang')}>Language &amp; region</button>
+            <button className={tab === 'cur' ? 'on' : ''} onClick={() => setTab('cur')}>Currency</button>
+          </div>
+        </div>
+        <div className="rm-body">
+          {tab === 'cur' ? (
+            <>
+              <h3 className="rm-h">Choose a currency</h3>
+              <div className="rm-grid">
+                {CURRENCIES.map((c) => (
+                  <button key={c} className={`rm-cur${currency === c ? ' on' : ''}`} onClick={() => { setCurrency(c); showToast(`Prices now shown in ${c}`); }}>
+                    <span className="rm-sym">{currencySymbol(c)}</span>
+                    <span className="rm-cur-t"><b>{currencyName(c)}</b><small>{c}</small></span>
+                    {currency === c && <Icon name="check" size={16} className="rm-check" />}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="rm-translate">
+                <div><b>Translation</b><span>Automatically translate descriptions &amp; reviews to your language.</span></div>
+                <button className={`rm-toggle${translate ? ' on' : ''}`} onClick={() => setTranslate((t) => !t)} aria-label="Toggle translation"><i /></button>
+              </div>
+              <h3 className="rm-h">Choose a language and region</h3>
+              <div className="rm-grid">
+                {RM_LANGS.map((l) => { const key = `${l.lang} · ${l.region}`; return (
+                  <button key={key} className={`rm-lang${lang === key ? ' on' : ''}`} onClick={() => { setLang(key); showToast(`Language set to ${l.lang}`); }}>
+                    <b>{l.lang}</b><small>{l.region}</small>
+                  </button>
+                ); })}
+              </div>
+              <p className="rm-note">Language is a display preference — content stays available in English.</p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  ), document.body);
 }
 
 /* ───────────────────────── Stay card ───────────────────────── */
@@ -229,6 +445,43 @@ export function StayCard({ stay }: { stay: Stay }) {
         <div className="scard-price"><b>{money(stay.price)}</b> <span className="muted">night</span></div>
       </div>
     </article>
+  );
+}
+
+/* ───────────────────────── Branded range calendar (replaces native date input) ───────────────────────── */
+const pad = (n: number) => String(n).padStart(2, '0');
+export const toISO = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+export function Calendar({ start, end, onPick }: { start: string | null; end: string | null; onPick: (iso: string) => void }) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const [vy, setVy] = useState(today.getFullYear());
+  const [vm, setVm] = useState(today.getMonth());
+  const move = (d: number) => { let m = vm + d, y = vy; if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; } setVm(m); setVy(y); };
+  const firstDay = new Date(vy, vm, 1).getDay();
+  const days = new Date(vy, vm + 1, 0).getDate();
+  const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+  const between = (id: string) => !!(start && end && id > start && id < end);
+  return (
+    <div className="cal2">
+      <div className="cal2-nav">
+        <button onClick={() => move(-1)} aria-label="Previous month"><Icon name="chevL" size={18} /></button>
+        <b>{new Date(vy, vm).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</b>
+        <button onClick={() => move(1)} aria-label="Next month"><Icon name="chevR" size={18} /></button>
+      </div>
+      <div className="cal2-week">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => <span key={d}>{d}</span>)}</div>
+      <div className="cal2-grid">
+        {cells.map((d, i) => {
+          if (d === null) return <span key={i} />;
+          const date = new Date(vy, vm, d); const id = toISO(date); const past = date < today;
+          const isStart = id === start, isEnd = id === end;
+          return (
+            <button key={i} disabled={past} type="button"
+              className={`cal2-day${isStart ? ' start' : ''}${isEnd ? ' end' : ''}${between(id) ? ' between' : ''}`}
+              onClick={() => onPick(id)}><span>{d}</span></button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

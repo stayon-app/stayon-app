@@ -23,6 +23,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
   const styles = makeStyles(width);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [nextImageIndex, setNextImageIndex] = useState(1);
+  // Rotating brand motif — matches the website ("StayOn travelling / experiencing …")
+  const WORDS = ['beyond ordinary', 'travelling', 'experiencing', 'vibing', 'exploring'];
+  const [wordIdx, setWordIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setWordIdx((i) => (i + 1) % WORDS.length), 1400);
+    return () => clearInterval(t);
+  }, []);
   
   // Classy entrance animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -333,6 +340,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
             <Animated.Text
               style={[
                 styles.brandText,
+                styles.brandOn,
                 {
                   opacity: letterO,
                   transform: [
@@ -357,6 +365,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
             <Animated.Text
               style={[
                 styles.brandText,
+                styles.brandOn,
                 {
                   opacity: letterN,
                   transform: [
@@ -391,7 +400,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
             }
           ]}
         >
-          stay beyond ordinary
+          {WORDS[wordIdx]}
         </Animated.Text>
       </Animated.View>
     </Animated.View>
@@ -441,37 +450,41 @@ function makeStyles(width: number) {
     alignItems: 'baseline',
   },
   brandText: {
-    fontSize: isWeb ? 90 : width > 400 ? 75 : 65,
-    fontWeight: '300',
-    fontStyle: 'italic',
-    color: '#E9D5FF',
-    letterSpacing: 2,
-    textShadowColor: '#A855F7',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 45,
+    fontSize: isWeb ? 88 : width > 400 ? 74 : 64,
+    ...fonts.bold,
+    fontWeight: '800',
+    fontStyle: 'normal',
+    color: '#FFFFFF',
+    letterSpacing: isWeb ? -3 : -2,
+    textShadowColor: 'rgba(0, 0, 0, 0.35)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 14,
     ...(isWeb && {
-      fontFamily: 'Georgia, serif',
+      fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
     }),
+  },
+  // Neon "On" — the StayOn wordmark accent.
+  brandOn: {
+    color: '#22D3EE',
+    textShadowColor: 'rgba(34, 211, 238, 0.35)',
   },
   brandTextSpace: {
     fontSize: isWeb ? 70 : width > 400 ? 55 : 48,
-    width: 15,
+    width: 5,
   },
   tagline: {
-    fontSize: isWeb ? 18 : 16,
-    fontWeight: '300',
-    fontStyle: 'italic',
-    color: '#E9D5FF',
-    letterSpacing: 4,
+    fontSize: isWeb ? 16 : 14,
+    ...fonts.semiBold,
+    fontWeight: '700',
+    fontStyle: 'normal',
+    color: 'rgba(255, 255, 255, 0.92)',
+    letterSpacing: isWeb ? 5 : 4,
     textAlign: 'center',
-    textShadowColor: '#A855F7',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 25,
     opacity: 0.95,
     paddingHorizontal: 40,
-    lineHeight: isWeb ? 32 : 28,
+    lineHeight: isWeb ? 28 : 24,
     ...(isWeb && {
-      fontFamily: 'Georgia, serif',
+      fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
     }),
   },
   });

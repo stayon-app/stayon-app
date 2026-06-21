@@ -158,7 +158,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ navigation, route }) => 
             },
           ]}
         >
-          <Text style={styles.brandName}>Stay On</Text>
+          <Text style={styles.brandName}>Stay<Text style={styles.brandOn}>On</Text></Text>
           <Text style={styles.tagline}>stay beyond ordinary</Text>
           <Text style={styles.title}>Welcome back</Text>
         </Animated.View>
@@ -298,22 +298,22 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ navigation, route }) => 
             },
           ]}
         >
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.socialButton}
             onPress={() => handleSocialLogin('google')}
             activeOpacity={0.8}
+            accessibilityLabel="Continue with Google"
           >
-            <Ionicons name="logo-google" size={20} color="#EA4335" />
-            <Text style={styles.socialButtonText}>Continue with Google</Text>
+            <Ionicons name="logo-google" size={26} color="#EA4335" />
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.socialButton}
             onPress={() => handleSocialLogin('apple')}
             activeOpacity={0.8}
+            accessibilityLabel="Continue with Apple"
           >
-            <Ionicons name="logo-apple" size={20} color="#000000" />
-            <Text style={styles.socialButtonText}>Continue with Apple</Text>
+            <Ionicons name="logo-apple" size={26} color="#000000" />
           </TouchableOpacity>
         </Animated.View>
         </View>
@@ -376,20 +376,20 @@ function makeStyles(height: number) {
     alignItems: 'center',
   },
   brandName: {
-    fontSize: 46,
-    fontStyle: 'italic',
-    fontWeight: '700',
-    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia, "Times New Roman", serif' }),
-    color: '#1E1B4B',
-    letterSpacing: 0.5,
+    fontSize: 38,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.8,
     textAlign: 'center',
+  },
+  brandOn: {
+    color: '#06D6B4',
+    fontWeight: '800',
   },
   tagline: {
     fontSize: 12,
-    fontStyle: 'italic',
-    fontFamily: Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia, "Times New Roman", serif' }),
     color: '#94A3B8',
-    letterSpacing: 4,
+    letterSpacing: 2,
     textAlign: 'center',
     marginTop: spacing.xs,
     marginBottom: spacing.lg,
@@ -563,9 +563,11 @@ function makeStyles(height: number) {
     letterSpacing: 2,
   },
   socialContainer: {
+    flexDirection: 'row',
     gap: spacing.md,
   },
   socialButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -574,14 +576,7 @@ function makeStyles(height: number) {
     borderColor: '#E5E8EE',
     borderRadius: 14,
     backgroundColor: '#FFFFFF',
-    minHeight: 54,
-  },
-  socialButtonText: {
-    fontSize: 15,
-    ...fonts.semiBold,
-    color: '#1E1B4B',
-    marginLeft: spacing.md,
-    letterSpacing: 0.3,
+    minHeight: 56,
   },
   });
 }

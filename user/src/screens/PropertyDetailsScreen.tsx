@@ -31,6 +31,7 @@ import { getReviews, relativeDate, type StoredReview } from '../data/reviews';
 import { getHostProfile, type HostProfile } from '../host/data/hostProfile';
 import { getGuide, getAnyGuide, GUIDE_CATEGORIES, type GuideEntry } from '../host/data/guidebooks';
 import { addRecentlyViewed } from '../data/recentlyViewed';
+import { isVerified } from '../data/verification';
 import { useFocusEffect } from '@react-navigation/native';
 import { Api } from '../api';
 import { confirmAction } from '../utils/confirm';
@@ -259,18 +260,21 @@ export const PropertyDetailsScreen: React.FC<PropertyDetailsScreenProps> = ({
     }
   };
 
-  const handleBookNow = () => {
-    checkAuthBeforeAction(
-      () => navigation.navigate('Booking', { property }),
-      navigation
-    );
+  const goBooking = () => navigation.navigate('Booking', { property });
+  // Booking requires a verified identity (mandatory). Auth first, then verification.
+  const startBooking = () => {
+    checkAuthBeforeAction(async () => {
+      if (await isVerified()) goBooking();
+      else navigation.navigate('IdentityVerification', { returnAction: goBooking });
+    }, navigation);
   };
+  const handleBookNow = () => startBooking();
 
   // Arrived from a StayReel's "View this stay" — the destination is already this
-  // stay, so jump straight into picking dates & guests.
+  // stay, so jump straight into picking dates & guests (still gated on verification).
   useEffect(() => {
     if (!autoBook) return;
-    const t = setTimeout(() => navigation.navigate('Booking', { property }), 400);
+    const t = setTimeout(() => startBooking(), 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoBook]);

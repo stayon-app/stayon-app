@@ -44,7 +44,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
         style={StyleSheet.absoluteFill}
       />
       <Animated.Text style={[styles.brand, { opacity: fade, transform: [{ translateY: rise }] }]}>
-        Stay On
+        Stay<Text style={styles.brandOn}>On</Text>
       </Animated.Text>
       <Animated.View style={[styles.hostRow, { opacity: hostFade }]}>
         <View style={styles.rule} />
@@ -60,25 +60,23 @@ function makeStyles(width: number) {
     container: { flex: 1, backgroundColor: '#0D9488', justifyContent: 'center', alignItems: 'center' },
     brand: {
       fontSize: isWeb ? 84 : width > 400 ? 72 : 60,
-      fontWeight: '300',
-      fontStyle: 'italic',
-      color: '#E9D5FF',
-      letterSpacing: 2,
-      textShadowColor: '#A855F7',
-      textShadowOffset: { width: 0, height: 0 },
-      textShadowRadius: 45,
-      ...(isWeb && { fontFamily: 'Georgia, serif' }),
+      fontWeight: '800',
+      fontStyle: 'normal',
+      color: '#FFFFFF',
+      letterSpacing: isWeb ? -3 : -2,
+      textShadowColor: 'rgba(0, 0, 0, 0.3)',
+      textShadowOffset: { width: 0, height: 2 },
+      textShadowRadius: 14,
+      ...(isWeb && { fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" }),
     },
+    brandOn: { color: '#5EEAD4' },
     hostRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18 },
-    rule: { width: 30, height: 1, backgroundColor: 'rgba(233,213,255,0.5)' },
+    rule: { width: 30, height: 1, backgroundColor: 'rgba(255,255,255,0.45)' },
     host: {
-      color: '#E9D5FF',
+      color: 'rgba(255,255,255,0.92)',
       fontSize: isWeb ? 16 : 14,
       letterSpacing: 8,
-      fontWeight: '400',
-      textShadowColor: '#A855F7',
-      textShadowOffset: { width: 0, height: 0 },
-      textShadowRadius: 20,
+      fontWeight: '700',
     },
   });
 }
