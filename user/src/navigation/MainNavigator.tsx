@@ -28,7 +28,6 @@ import {
   BlogPostScreen,
   GlobeExplorerScreen,
   VibeSearchScreen,
-  StayBotScreen,
   StayCoinsScreen,
   StayServicesScreen,
   BookingConfirmationScreen,
@@ -61,7 +60,7 @@ const Tab = createBottomTabNavigator();
 const TAB_CONFIG = [
   { name: 'HomeTab', label: 'Home', icon: 'home', iconOutline: 'home-outline' },
   { name: 'ExploreTab', label: 'Explore', icon: 'compass', iconOutline: 'compass-outline' },
-  { name: 'StayBotTab', label: 'StayBot', icon: 'sparkles', iconOutline: 'sparkles-outline', center: true },
+  { name: 'ReelsTab', label: 'Reels', icon: 'play-circle', iconOutline: 'play-circle-outline', center: true },
   { name: 'TripsTab', label: 'Trips', icon: 'calendar', iconOutline: 'calendar-outline' },
   { name: 'ProfileTab', label: 'Profile', icon: 'person', iconOutline: 'person-outline' },
 ];
@@ -100,10 +99,10 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                   end={{ x: 1, y: 1 }}
                   style={styles.centerTabInner}
                 >
-                  <Ionicons name="sparkles" size={22} color="#fff" />
+                  <Ionicons name="play" size={22} color="#fff" />
                 </LinearGradient>
               </TouchableOpacity>
-              <Text style={[styles.tabLabel, { color: colors.primary, marginTop: 28 }]}>StayBot</Text>
+              <Text style={[styles.tabLabel, { color: colors.primary, marginTop: 28 }]}>Reels</Text>
             </View>
           );
         }
@@ -143,7 +142,7 @@ function MainTabs() {
     >
       <Tab.Screen name="HomeTab" component={HomeScreen} />
       <Tab.Screen name="ExploreTab" component={ExploreScreen} />
-      <Tab.Screen name="StayBotTab" component={StayBotScreen} />
+      <Tab.Screen name="ReelsTab" component={ReelViewerScreen} />
       <Tab.Screen name="TripsTab" component={TripsScreen} />
       <Tab.Screen name="ProfileTab" component={ProfileScreen} />
     </Tab.Navigator>

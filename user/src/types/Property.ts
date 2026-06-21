@@ -555,7 +555,7 @@ export const createMockProperty = (overrides?: Partial<Property>): Property => {
       {
         id: '3',
         icon: amenities.some((a) => a.id === 'parking') ? 'SquareParking' : 'Award', // lucide
-        title: amenities.some((a) => a.id === 'parking') ? 'Park for free' : 'Guest favorite',
+        title: amenities.some((a) => a.id === 'parking') ? 'Park for free' : 'Guest favourite',
         description: amenities.some((a) => a.id === 'parking')
           ? 'One of the few places in the area with free parking.'
           : 'This home is highly rated by recent guests.',

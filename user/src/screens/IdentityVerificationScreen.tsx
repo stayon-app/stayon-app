@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
 } from 'react-native';
@@ -10,6 +10,7 @@ import { useHaptics } from '../hooks/useHaptics';
 import { STAYON_GRADIENT } from '../components/GradientButton';
 import { spacing, fontSizes, fonts, borderRadius } from '../constants';
 import { Api } from '../api';
+import { setVerified } from '../data/verification';
 
 interface Step {
   id: string;
@@ -19,9 +20,12 @@ interface Step {
   status: 'done' | 'current' | 'pending';
 }
 
-export function IdentityVerificationScreen({ navigation }: any) {
+export function IdentityVerificationScreen({ navigation, route }: any) {
   const { colors } = useTheme();
   const { light, success } = useHaptics();
+  // When verification is used as a gate (e.g. before booking), the caller passes a
+  // returnAction to continue once verified.
+  const returnAction = route?.params?.returnAction as (() => void) | undefined;
 
   const [steps, setSteps] = useState<Step[]>([
     { id: '1', icon: 'mail', title: 'Email verified', sub: 'mahindrabommu@gmail.com', status: 'done' },
@@ -53,6 +57,10 @@ export function IdentityVerificationScreen({ navigation }: any) {
   const progress = doneCount / steps.length;
   const allDone = doneCount === steps.length;
 
+  // Persist the verified flag once every step is complete (gates booking).
+  useEffect(() => { if (allDone) setVerified(true); }, [allDone]);
+  const finishVerification = () => { light(); if (returnAction) returnAction(); else navigation.goBack(); };
+
   const styles = makeStyles(colors);
 
   return (
@@ -79,6 +87,11 @@ export function IdentityVerificationScreen({ navigation }: any) {
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
           </View>
           <Text style={styles.progressLabel}>{doneCount} of {steps.length} steps complete</Text>
+          {allDone && (
+            <TouchableOpacity activeOpacity={0.9} style={styles.continueBtn} onPress={finishVerification}>
+              <Text style={styles.continueText}>{returnAction ? 'Continue to booking' : 'Done'}</Text>
+            </TouchableOpacity>
+          )}
         </LinearGradient>
 
         {/* Steps */}
@@ -183,6 +196,8 @@ function makeStyles(colors: any) {
     progressTrack: { width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 3, marginTop: spacing.md },
     progressFill: { height: 6, backgroundColor: '#fff', borderRadius: 3 },
     progressLabel: { color: 'rgba(255,255,255,0.9)', fontSize: fontSizes.xs, ...fonts.semiBold },
+    continueBtn: { marginTop: spacing.md, backgroundColor: '#fff', paddingHorizontal: spacing.xl, paddingVertical: spacing.sm + 2, borderRadius: borderRadius.base },
+    continueText: { color: colors.primary, fontSize: fontSizes.md, ...fonts.bold },
     steps: { paddingHorizontal: spacing.lg, marginBottom: spacing.base },
     stepRow: { flexDirection: 'row', gap: spacing.md },
     timeline: { alignItems: 'center' },

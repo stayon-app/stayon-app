@@ -37,7 +37,7 @@ const SLIDES = [
     id: '3',
     icon: 'wallet',
     title: 'Earn StayCoins',
-    subtitle: 'Every booking earns you StayCoins. Reach Gold and Platinum tiers for exclusive perks, upgrades, and free nights.',
+    subtitle: 'Every booking earns you StayCoins. Reach the Gold and Platinum tiers for exclusive perks, upgrades, and free nights.',
     gradient: ['#F59E0B', '#FCD34D'] as [string, string],
     img: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=800&h=600&fit=crop',
   },

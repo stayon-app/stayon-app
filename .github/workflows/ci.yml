@@ -1,0 +1,98 @@
+name: CI
+
+# Automated quality gate — runs on every push / PR. Typechecks and builds every
+# app so a broken change can never reach the live branch unnoticed.
+on:
+  push:
+    branches: [main, PR2-STAYON]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  website:
+    name: Website (build + typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  user-app:
+    name: User app (typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: user
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: user/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  host-app:
+    name: Host app (typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: host
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: host/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+
+  backend:
+    name: Backend (install + syntax)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: node --check src/index.js
+
+  audit:
+    name: Dependency audit (${{ matrix.dir }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: [website, user, host, backend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: cd ${{ matrix.dir }} && npm ci
+      # Report known high/critical vulns. Non-blocking so a transitive advisory
+      # doesn't halt deploys — review the Dependabot PRs it raises.
+      - run: cd ${{ matrix.dir }} && npm audit --audit-level=high || true
+
+  docker:
+    name: Backend image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t stayon-backend:ci ./backend

@@ -175,7 +175,7 @@ export const ExploreSection: React.FC<ExploreSectionProps> = ({
         </Animated.View>
         <View style={styles.emptyContainer}>
           <Ionicons name="search-outline" size={48} color={colors.textTertiary} />
-          <Text style={styles.emptyText}>No properties available</Text>
+          <Text style={styles.emptyText}>No stays available</Text>
         </View>
       </View>
     );

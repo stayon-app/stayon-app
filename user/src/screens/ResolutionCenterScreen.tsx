@@ -13,7 +13,7 @@ import { spacing, fontSizes, fonts, borderRadius } from '../constants';
 
 const ISSUE_TYPES = [
   { id: 'refund', icon: 'cash-outline', title: 'Request a refund', sub: 'Get money back for an issue with your stay' },
-  { id: 'listing', icon: 'home-outline', title: 'Stay not as described', sub: 'The place was different from the stay' },
+  { id: 'listing', icon: 'home-outline', title: 'Stay not as described', sub: 'The place was different from the listing' },
   { id: 'cleanliness', icon: 'sparkles-outline', title: 'Cleanliness issue', sub: 'The property wasn\'t clean on arrival' },
   { id: 'checkin', icon: 'key-outline', title: 'Couldn\'t check in', sub: 'Access problems or host unreachable' },
   { id: 'safety', icon: 'shield-outline', title: 'Safety concern', sub: 'Report a safety or security issue' },

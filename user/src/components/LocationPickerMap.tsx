@@ -5,8 +5,9 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { LIGHT_MAP_STYLE, DARK_MAP_STYLE } from '../utils/mapStyle';
+import { GOOGLE_MAPS_KEY } from '../config/maps';
 
-const GOOGLE_KEY = 'AIzaSyD-xBIuVKRb8K1AI0EjP8mq-vTQkwHyqKA';
+const GOOGLE_KEY = GOOGLE_MAPS_KEY;
 
 let MapView: any = null;
 let Marker: any = null;

@@ -55,7 +55,7 @@ const PRICE_SNAP = 10;  // snap step
 const THUMB_SIZE = 28;
 
 const RECOMMENDED = [
-  { id: 'guest_fav', label: 'Guest favorite', icon: 'rosette-outline' },
+  { id: 'guest_fav', label: 'Guest favourite', icon: 'rosette-outline' },
   { id: 'instant', label: 'Instant Book', icon: 'flash-outline' },
   { id: 'superhost', label: 'Superhost', icon: 'ribbon-outline' },
   { id: 'free_cancel', label: 'Free cancellation', icon: 'shield-checkmark-outline' },

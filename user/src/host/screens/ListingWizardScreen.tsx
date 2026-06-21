@@ -25,6 +25,7 @@ import {
   AMENITY_OPTIONS, AMENITY_CATEGORY_ORDER, SAFETY_OPTIONS, MIN_PHOTOS, PHOTO_ROOMS,
 } from '../data/listings';
 import { Api } from '../../api';
+import { publishToBackend } from '../data/publishQueue';
 import { LocationPickerMap } from '../../components/LocationPickerMap';
 import { AmenityIcon } from '../../components/AmenityIcon';
 
@@ -209,34 +210,13 @@ export function ListingWizardScreen({ navigation }: any) {
     // final → publish (locally) AND submit to the backend for Ops review so it
     // can go public to users on other devices. Backend call is fail-safe.
     success();
-    saveListing({ ...d, status: 'published', instantBook: d.bookingApproval === 'instant', title: d.title.trim(), address: d.address.trim(), city: d.city.trim(), country: d.country.trim() }).then(async () => {
-      try {
-        await Api.auth.ensureSession();
-        const prof = await getHostProfile();
-        const created = await Api.listings.create({
-          hostLanguages: prof.languages || [],
-          title: d.title.trim(), type: d.type, placeType: d.placeType,
-          address: d.address.trim(), city: d.city.trim(), state: d.state, country: d.country.trim(), zipcode: d.zipcode,
-          lat: d.latitude, lng: d.longitude,
-          guests: d.guests, bedrooms: d.bedrooms, beds: d.beds, bathrooms: d.bathrooms,
-          priceUSD: Math.round(listingUSD(d.price, d.priceCurrency)),
-          weekendPriceUSD: d.weekendPrice ? Math.round(listingUSD(d.weekendPrice, d.priceCurrency)) : undefined,
-          cleaningFeeUSD: Math.round(listingUSD(d.cleaningFee, d.priceCurrency)),
-          baseGuests: d.baseGuests || 1,
-          extraGuestPct: d.extraGuestPct || 0,
-          images: d.images.map((uri) => ({ url: uri, room: d.photoMeta?.[uri]?.room, caption: d.photoMeta?.[uri]?.caption })),
-          amenities: d.amenities, vibes: d.vibes, highlights: d.highlights,
-          instantBook: d.bookingApproval === 'instant',
-          // everything else the host set → stored on the backend
-          houseRules: d.houseRules, petsAllowed: d.houseRules?.pets,
-          cancellation: d.cancellationPolicy, checkIn: d.checkInTime, checkOut: d.checkOutTime,
-          minNights: d.minNights, safety: d.safety,
-          publish: true, // goes live immediately → searchable (Ops gate re-added with the Ops portal)
-        });
-        // Remember the backend id so the host can EDIT this stay later.
-        if (created?.id) await saveListing({ ...d, status: 'published', remoteId: created.id, instantBook: d.bookingApproval === 'instant', title: d.title.trim(), address: d.address.trim(), city: d.city.trim(), country: d.country.trim() });
-      } catch {
-        // backend offline — local publish still succeeded
+    const published: HostListing = { ...d, status: 'published', instantBook: d.bookingApproval === 'instant', title: d.title.trim(), address: d.address.trim(), city: d.city.trim(), country: d.country.trim() };
+    saveListing(published).then(async () => {
+      // Push to the backend so guests on other devices find it. If the backend
+      // is unreachable, it's queued and replayed automatically next time online.
+      const r = await publishToBackend(published);
+      if (!r.synced) {
+        Alert.alert('Published — syncing soon', 'Your stay is live on your device. We’ll publish it to everyone automatically once you’re back online.', [{ text: 'OK' }]);
       }
       navigation.goBack();
     });
@@ -245,8 +225,12 @@ export function ListingWizardScreen({ navigation }: any) {
 
   const pickPhotos = async () => {
     light();
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert('Permission needed', 'Allow photo access to add pictures.'); return; }
+    // Web uses the browser file dialog and needs no media-library permission —
+    // requesting it there returns "not granted" and silently blocks the picker.
+    if (Platform.OS !== 'web') {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) { Alert.alert('Permission needed', 'Allow photo access to add pictures.'); return; }
+    }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.85 });
     if (res.canceled) return;
     setAiTagging(true);
@@ -990,7 +974,13 @@ export function ListingWizardScreen({ navigation }: any) {
         <TouchableOpacity style={styles.topPill} onPress={i === 0 ? () => navigation.goBack() : saveExit}>
           <Text style={styles.topPillText}>{i === 0 ? 'Exit' : 'Save & exit'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.topPill}><Text style={styles.topPillText}>Questions?</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.topPill} onPress={() => { light(); Alert.alert(
+          'Need a hand?',
+          'Add at least 6 photos, drop your address pin on the map, set a price, then Publish. Tap “Save & exit” anytime to keep a draft.\n\nStill stuck? Email support@stayon.com and we’ll help you get listed.',
+          [{ text: 'Got it' }],
+        ); }}>
+          <Text style={styles.topPillText}>Questions?</Text>
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
@@ -1061,7 +1051,7 @@ const makeStyles = (colors: any) =>
     optSub: { fontSize: fontSizes.sm, color: colors.textSecondary, marginTop: 2, lineHeight: 19, ...fonts.regular },
     recommend: { fontSize: fontSizes.sm, color: colors.success, marginTop: 2, ...fonts.semiBold },
     // location
-    pinBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.md, borderRadius: borderRadius.md, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: colors.primarySubtle, marginBottom: spacing.sm },
+    pinBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.md, borderRadius: borderRadius.md, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.primary, backgroundColor: colors.primarySubtle, marginTop: spacing.md, marginBottom: spacing.sm },
     pinText: { color: colors.primary, fontSize: fontSizes.base, ...fonts.semiBold },
     saveLocBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: spacing.md, borderRadius: borderRadius.lg },
     saveLocText: { color: '#fff', fontSize: fontSizes.base, ...fonts.bold },
