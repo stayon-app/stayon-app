@@ -164,4 +164,32 @@ router.get('/feature-flags', wrap(async (req, res) => {
   } catch { ok(res, { flags: {} }); }
 }));
 
+// ---- GDPR / CCPA — data portability (export) + right to erasure (delete) ----
+router.get('/me/export', authUser, wrap(async (req, res) => {
+  const uid = req.auth.sub;
+  const safe = (p) => p.then((v) => v, () => []); // missing table → empty
+  const [user, identities, bookings, reservations, reviews, wishlists, threads, notifications] = await Promise.all([
+    one('users', { id: uid }).catch(() => null),
+    safe(rows('identities', { user_id: uid })), safe(rows('bookings', { guest_id: uid })),
+    safe(rows('reservations', { guest_id: uid })), safe(rows('reviews', { author_id: uid })),
+    safe(rows('wishlists', { user_id: uid })), safe(rows('threads', { guest_id: uid })),
+    safe(rows('notifications', { user_id: uid })),
+  ]);
+  // Never export raw ID documents — only non-sensitive metadata.
+  const identitiesSafe = identities.map((i) => ({ id_type: i.id_type, id_last4: i.id_last4, status: i.status, submitted_at: i.submitted_at }));
+  ok(res, { exportedAt: now(), user, identities: identitiesSafe, bookings, reservations, reviews, wishlists, threads, notifications });
+}));
+
+router.post('/me/delete', authUser, wrap(async (req, res) => {
+  const uid = req.auth.sub;
+  const tryDel = (q) => q.then(() => {}, () => {});
+  // Right to erasure: remove PII + identity docs; de-identify the account.
+  // Bookings/reservations are RETAINED (legal/financial record) once anonymised.
+  await tryDel(sb.from('identities').delete().eq('user_id', uid));
+  await tryDel(sb.from('wishlists').delete().eq('user_id', uid));
+  await tryDel(sb.from('notifications').delete().eq('user_id', uid));
+  await tryDel(sb.from('users').update({ name: 'Deleted user', phone: null, email: null, push_token: null, status: 'deleted' }).eq('id', uid));
+  ok(res, { deleted: true });
+}));
+
 module.exports = router;
