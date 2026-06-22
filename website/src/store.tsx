@@ -5,6 +5,7 @@ import { HOST_LISTINGS } from './data';
 /* ───────────────────────── Types ───────────────────────── */
 export type RouteName =
   | 'home' | 'explore' | 'stay' | 'dest' | 'place' | 'auth' | 'book' | 'confirm' | 'trips' | 'profile'
+  | 'experiences' | 'experience'
   | 'host-landing' | 'host-today' | 'host-listings' | 'host-reservations' | 'host-earnings' | 'host-calendar' | 'host-create';
 export type Route = { name: RouteName; params?: Record<string, string> };
 
@@ -210,16 +211,17 @@ function parseHash(): Route {
   if (query) for (const kv of query.split('&')) { const [k, v] = kv.split('='); params[k] = decodeURIComponent(v || ''); }
   const name = (seg[0] || 'home') as RouteName;
   const valid: RouteName[] = ['home', 'explore', 'stay', 'dest', 'place', 'auth', 'book', 'confirm', 'trips', 'profile',
+    'experiences', 'experience',
     'host-landing', 'host-today', 'host-listings', 'host-reservations', 'host-earnings', 'host-calendar', 'host-create'];
   if (!valid.includes(name)) return { name: 'home' };
-  if ((name === 'stay' || name === 'book') && seg[1]) params.id = seg[1];
+  if ((name === 'stay' || name === 'book' || name === 'experience') && seg[1]) params.id = seg[1];
   return { name, params };
 }
 
 function toHash(name: RouteName, params?: Record<string, string>): string {
   let h = `#/${name}`;
   const p = { ...(params || {}) };
-  if ((name === 'stay' || name === 'book') && p.id) { h += `/${p.id}`; delete p.id; }
+  if ((name === 'stay' || name === 'book' || name === 'experience') && p.id) { h += `/${p.id}`; delete p.id; }
   const q = Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
   if (q) h += `?${q}`;
   return h;

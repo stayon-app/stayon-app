@@ -271,6 +271,7 @@ export function Header() {
   }, [route.name]);
   const tabs: { name: any; label: string; icon: string }[] = [
     { name: 'home', label: 'Stays', icon: 'home' },
+    { name: 'experiences', label: 'Experiences', icon: 'sparkles' },
     { name: 'explore', label: 'Explore', icon: 'compass' },
   ];
   return (

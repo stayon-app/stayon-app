@@ -60,6 +60,7 @@ import { PropertyCardLarge } from '../components/PropertyCardLarge';
 import { ExploreSection } from '../components/ExploreSection';
 import { ExploreSectionSkeleton } from '../components/common/SkeletonLoader';
 import { useHaptics } from '../hooks/useHaptics';
+import { getPublishedExperiences, categoryLabel, type Experience as StoreExperience } from '../data/experiences';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useLocationDetection } from '../hooks/useLocationDetection';
@@ -787,6 +788,31 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ navigation, route 
     nearLandmarkProperties.length + freeCancelProperties.length + similarDatesProperties.length +
     nearCityProperties.length + popularProperties.length + guestFavouritesProperties.length;
 
+  // Host-created experiences (from the store) — shown first in the Experiences tab.
+  const [hostExperiences, setHostExperiences] = useState<StoreExperience[]>([]);
+  useEffect(() => {
+    let active = true;
+    getPublishedExperiences().then((list) => { if (active) setHostExperiences(list); });
+    return () => { active = false; };
+  }, []);
+  // Map a stored experience to the card shape this screen renders.
+  const hostExperienceCards: Experience[] = hostExperiences.map((e) => ({
+    id: e.id,
+    image: e.images[0],
+    title: e.title,
+    location: e.location,
+    category: categoryLabel(e.category),
+    duration: e.durationLabel || '',
+    perPersonPrice: e.pricePerPerson,
+    spotsLeft: e.capacity,
+    rating: e.rating || 0,
+    reviews: e.reviews || 0,
+  }));
+  const openHostExperience = (exp: Experience) => {
+    haptics.light();
+    navigation.navigate('ExperienceDetails', { id: exp.id });
+  };
+
   // Experiences data organized by sections - location-aware
   const adventureExperiences = generateExperiences(8, 0, currentLocation);
   const culturalExperiences = generateExperiences(8, 8, currentLocation);
@@ -943,6 +969,19 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ navigation, route 
 
         <TouchableOpacity
           style={styles.tab}
+          onPress={() => setActiveTab('experiences')}
+        >
+          <Animated.View style={tabIconStyle}>
+            <Ionicons name="sparkles-outline" size={20} color={activeTab === 'experiences' ? themeColors.primary : themeColors.textSecondary} />
+          </Animated.View>
+          <Text style={[styles.tabText, activeTab === 'experiences' && styles.tabTextActive]}>
+            Experiences
+          </Text>
+          {activeTab === 'experiences' && <View style={styles.tabIndicator} />}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.tab}
           onPress={() => setActiveTab('destinations')}
         >
           <Animated.View style={tabIconStyle}>
@@ -952,22 +991,6 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ navigation, route 
             Destinations
           </Text>
           {activeTab === 'destinations' && <View style={styles.tabIndicator} />}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => setActiveTab('blogs')}
-        >
-          <Animated.View style={tabIconStyle}>
-            <Ionicons name="newspaper-outline" size={20} color={activeTab === 'blogs' ? themeColors.primary : themeColors.textSecondary} />
-          </Animated.View>
-          <Text style={[styles.tabText, activeTab === 'blogs' && styles.tabTextActive]}>
-            Blogs
-          </Text>
-          <View style={styles.newBadge}>
-            <Text style={styles.newBadgeText}>NEW</Text>
-          </View>
-          {activeTab === 'blogs' && <View style={styles.tabIndicator} />}
         </TouchableOpacity>
       </View>
 
@@ -1141,6 +1164,16 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({ navigation, route 
 
         {!loading && !error && hasData && activeTab === 'experiences' && (
           <>
+            {hostExperienceCards.length > 0 && (
+              <ExperienceSection
+                title="New on StayOn"
+                experiences={hostExperienceCards}
+                colors={themeColors}
+                onPress={openHostExperience}
+                onSeeAll={() => {}}
+              />
+            )}
+
             <ExperienceSection
               title={`Adventure Activities in ${currentLocation}`}
               experiences={adventureExperiences}

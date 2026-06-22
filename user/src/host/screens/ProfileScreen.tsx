@@ -121,6 +121,7 @@ export function ProfileScreen({ navigation }: any) {
 
         <SettingsSection title="Hosting">
           <SettingsRow icon="home-outline" title="Your stays" subtitle="Create & manage your stays" onPress={go('Listings')} />
+          <SettingsRow icon="sparkles-outline" title="Your experiences" subtitle="Host music, comedy, trips & more" onPress={go('Experiences')} />
           <SettingsRow icon="stats-chart-outline" title="Earnings & analytics" subtitle="Revenue, payouts, occupancy" onPress={go('Earnings')} />
           <SettingsRow icon="star-outline" title="Reviews" subtitle="From your guests" onPress={go('Reviews')} />
           <SettingsRow icon="sparkles-outline" title="Host Assistant" subtitle="Ask about your numbers" onPress={go('HostAssistant')} />

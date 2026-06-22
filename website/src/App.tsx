@@ -6,6 +6,7 @@ import { StayScreen } from './screens-stay';
 import { AuthScreen, BookScreen, ConfirmScreen } from './screens-flow';
 import { DestPage, AttractionPage } from './screens-dest';
 import { TripsScreen, ProfileScreen } from './screens-misc';
+import { ExperiencesScreen, ExperienceScreen } from './screens-experiences';
 import { HostChrome, HostLanding, HostToday, HostListings, HostReservations, HostEarnings, HostCalendar, HostCreate } from './screens-host';
 
 function Router() {
@@ -38,6 +39,8 @@ function Router() {
     case 'home': screen = <HomeScreen />; break;
     case 'explore': screen = <ExploreScreen />; break;
     case 'stay': screen = <StayScreen />; break;
+    case 'experiences': screen = <ExperiencesScreen />; break;
+    case 'experience': screen = <ExperienceScreen />; break;
     case 'dest': screen = <DestPage />; break;
     case 'place': screen = <AttractionPage />; break;
     case 'auth': screen = <AuthScreen />; break;
