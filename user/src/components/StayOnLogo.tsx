@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Path, Circle, G, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { fonts } from '../constants';
 import { useTheme } from '../contexts/ThemeContext';
+import { BRAND_ON } from './brandOn';
 
 interface StayOnLogoProps {
   size?: number;
@@ -186,7 +187,8 @@ function makeStyles(colors: any) {
     letterSpacing: -0.5,
   },
   brandTextAccent: {
-    color: '#06D6B4',
+    // Neon green→cyan→blue gradient "On" — the StayOn brand accent.
+    ...BRAND_ON,
   },
   });
 }
