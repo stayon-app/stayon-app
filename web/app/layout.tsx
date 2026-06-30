@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
+import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
-import { AuthProvider } from '@/components/AuthProvider';
 import { PrefsProvider } from '@/components/PrefsProvider';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -18,16 +18,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        <PrefsProvider>
-          <AuthProvider>
+    <ClerkProvider
+      appearance={{ variables: { colorPrimary: '#0d9488' } }}
+      afterSignOutUrl="/"
+    >
+      <html lang="en">
+        <body>
+          <PrefsProvider>
             <Header />
             <main>{children}</main>
             <Footer />
-          </AuthProvider>
-        </PrefsProvider>
-      </body>
-    </html>
+          </PrefsProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
