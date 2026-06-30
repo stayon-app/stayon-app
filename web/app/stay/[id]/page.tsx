@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getStay } from '@/lib/api';
-import { Price } from '@/components/Price';
-import { ReserveButton } from '@/components/ReserveButton';
+import { BookingWidget } from '@/components/BookingWidget';
 import type { Metadata } from 'next';
 
 export async function generateMetadata({
@@ -92,13 +91,13 @@ export default async function StayDetailPage({ params }: { params: { id: string 
         </div>
 
         {/* Booking card */}
-        <aside className="book-card">
-          <div className="price-lg">
-            <Price usd={stay.priceUSD} bold suffix="/ night" />
-          </div>
-          <div className="fee-note">0% platform fee · host keeps 100%</div>
-          <ReserveButton />
-        </aside>
+        <BookingWidget
+          stayId={stay.id}
+          priceUSD={stay.priceUSD}
+          maxGuests={stay.guests}
+          baseGuests={stay.baseGuests || 1}
+          instantBook={stay.instantBook}
+        />
       </div>
 
       <Link href="/search" className="back-link">

@@ -24,6 +24,9 @@ export function Header() {
             </SignUpButton>
           </SignedOut>
           <SignedIn>
+            <Link href="/trips" className="host-link">
+              Trips
+            </Link>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
         </div>
