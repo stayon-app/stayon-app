@@ -9,10 +9,6 @@ updates:
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
   - package-ecosystem: npm
-    directory: /host
-    schedule: { interval: weekly }
-    open-pull-requests-limit: 5
-  - package-ecosystem: npm
     directory: /backend
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
