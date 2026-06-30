@@ -17,7 +17,7 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: npm
@@ -38,7 +38,7 @@ jobs:
         working-directory: user
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: npm
@@ -57,7 +57,7 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: npm
@@ -74,7 +74,7 @@ jobs:
         dir: [web, user, backend]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with: { node-version: '20' }
       - run: cd ${{ matrix.dir }} && npm ci
       # Report known high/critical vulns. Non-blocking so a transitive advisory
