@@ -9,22 +9,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  website:
-    name: Website (build + typecheck)
+  web:
+    name: Website (typecheck)
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: website
+        working-directory: web
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: website/package-lock.json
+          cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
-      - run: npm run build
+      # `next build` needs NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY (Clerk validates it at
+      # prerender). Add it as a repo Actions variable, then re-enable:
+      # - run: npm run build
+      #   env:
+      #     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
 
   user-app:
     name: User app (typecheck)
@@ -42,21 +46,8 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
 
-  host-app:
-    name: Host app (typecheck)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: host
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: host/package-lock.json
-      - run: npm ci
-      - run: npx tsc --noEmit
+  # NOTE: the standalone host/ app has no package.json yet (incomplete scaffold),
+  # so it's not built/audited in CI. Re-add a host job once it's a real package.
 
   backend:
     name: Backend (install + syntax)
@@ -80,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dir: [website, user, host, backend]
+        dir: [web, user, backend]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

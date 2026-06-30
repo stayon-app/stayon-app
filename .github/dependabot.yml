@@ -1,15 +1,11 @@
 version: 2
 updates:
   - package-ecosystem: npm
-    directory: /website
+    directory: /web
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
   - package-ecosystem: npm
     directory: /user
-    schedule: { interval: weekly }
-    open-pull-requests-limit: 5
-  - package-ecosystem: npm
-    directory: /host
     schedule: { interval: weekly }
     open-pull-requests-limit: 5
   - package-ecosystem: npm
