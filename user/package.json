@@ -27,7 +27,7 @@
     "lucide-react-native": "^1.17.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-native": "0.85.3",
+    "react-native": "0.86.0",
     "react-native-calendars": "^1.1314.0",
     "react-native-gesture-handler": "~2.31.1",
     "react-native-image-viewing": "^0.2.2",
