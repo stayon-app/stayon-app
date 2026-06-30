@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AuthButton } from './AuthButton';
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import { GlobeMenu } from './GlobeMenu';
 
 export function Header() {
@@ -15,7 +15,17 @@ export function Header() {
             Become a host
           </Link>
           <GlobeMenu />
-          <AuthButton />
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="btn btn-ghost">Log in</button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className="btn btn-primary">Sign up</button>
+            </SignUpButton>
+          </SignedOut>
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
         </div>
       </div>
     </header>

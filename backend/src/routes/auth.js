@@ -3,6 +3,7 @@ const router = express.Router();
 const { signAccess, createRefreshToken, rotateRefreshToken, revokeToken, authUser } = require('../auth');
 const { one, insertRow, updateByMatch, wrap, ok, err, userOut } = require('../utils/helpers');
 const { createOtp, verifyOtp } = require('../services/otp');
+const { verifyClerkToken } = require('../services/clerk');
 const { otpSendLimiter, otpVerifyLimiter } = require('../middleware/rateLimiter');
 
 // ── Step 1: Send OTP ───────────────────────────────────────────────────────
@@ -48,6 +49,55 @@ router.post('/auth/verify-otp', otpVerifyLimiter, wrap(async (req, res) => {
   const isNewUser = !user.name || user.name === 'Guest';
 
   // Issue tokens
+  const accessToken = signAccess({ sub: user.id, kind: 'user', name: user.name });
+  const refreshToken = await createRefreshToken(user.id);
+
+  ok(res, { accessToken, refreshToken, user: userOut(user), isNewUser });
+}));
+
+// ── Clerk bridge: exchange a Clerk session for a StayOn session ─────────────
+// POST /v1/auth/clerk   { clerkToken }
+// Used by BOTH the website and the Expo app. Clerk is the front-end identity;
+// this maps the Clerk user to a Supabase users row and issues StayOn tokens, so
+// every other endpoint keeps working unchanged.
+router.post('/auth/clerk', wrap(async (req, res) => {
+  const { clerkToken } = req.body || {};
+  if (!clerkToken) return err(res, 'TOKEN', 'clerkToken required');
+
+  let info;
+  try {
+    info = await verifyClerkToken(clerkToken);
+  } catch (e) {
+    if (e.code === 'CLERK_DISABLED') return err(res, e.code, e.message, 503);
+    return err(res, 'CLERK_INVALID', 'Invalid or expired Clerk session', 401);
+  }
+
+  // Find the StayOn user mapped to this Clerk id…
+  let user = await one('users', { clerk_id: info.clerkUserId });
+  let isNewUser = false;
+
+  if (!user) {
+    // …or link an existing account by email/phone (e.g. a prior OTP user)…
+    if (info.email) user = await one('users', { email: info.email });
+    if (!user && info.phone) user = await one('users', { phone: info.phone });
+
+    if (user) {
+      const linked = await updateByMatch('users', { id: user.id }, { clerk_id: info.clerkUserId });
+      user = linked[0];
+    } else {
+      // …otherwise create a fresh StayOn user from the Clerk profile.
+      user = await insertRow('users', {
+        clerk_id: info.clerkUserId,
+        email: info.email,
+        phone: info.phone,
+        name: info.name || 'Guest',
+        avatar_url: info.avatarUrl,
+        country_code: 'IN',
+      });
+      isNewUser = true;
+    }
+  }
+
   const accessToken = signAccess({ sub: user.id, kind: 'user', name: user.name });
   const refreshToken = await createRefreshToken(user.id);
 
