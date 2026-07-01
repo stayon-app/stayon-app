@@ -506,6 +506,44 @@ img {
 .trip-confirmed { background: #d1fae5; color: #065f46; }
 .trip-completed { background: #e0e7ff; color: #3730a3; }
 .trip-cancelled { background: #fee2e2; color: #991b1b; }
+.trip-draft { background: #f1f5f9; color: #475569; }
+.trip-published { background: #d1fae5; color: #065f46; }
+.trip-pending_review { background: #fef3c7; color: #92400e; }
+
+/* ── Host dashboard ─────────────────────────────────────── */
+.host-h3 { font-size: 18px; margin: 8px 0 14px; letter-spacing: -0.3px; }
+.host-actions-cell { display: flex; flex-direction: column; gap: 8px; }
+.hf-sm { padding: 8px 16px; font-size: 14px; }
+
+.host-form {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 24px;
+  margin-bottom: 32px;
+  box-shadow: var(--shadow-sm);
+}
+.host-form h3 { font-size: 19px; margin-bottom: 18px; }
+.hf-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
+.hf-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+.hf-field span { font-size: 12px; font-weight: 700; color: var(--slate); }
+.hf-field input, .hf-field select, .hf-field textarea {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--ink);
+  outline: none;
+  width: 100%;
+}
+.hf-field input:focus, .hf-field select:focus, .hf-field textarea:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+}
+.hf-check { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--slate); margin: 4px 0 14px; cursor: pointer; }
+.hf-check input { width: 18px; height: 18px; accent-color: var(--teal); }
+.hf-note { font-size: 13px; color: var(--teal-dark); background: #ecfdf5; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+.hf-actions { display: flex; justify-content: flex-end; gap: 12px; }
 
 /* ── Empty / misc ───────────────────────────────────────── */
 .empty {

@@ -110,9 +110,19 @@ export async function getQuote(listingId: string, qs: string): Promise<any> {
   return res.json();
 }
 
-// Authed
+// Authed — guest
 export const stayon = {
   book: (payload: { listingId: string; checkIn: string; checkOut: string; guests: number }) =>
     authed('POST', '/bookings', payload),
   myBookings: (): Promise<{ items: any[] }> => authed('GET', '/bookings'),
+};
+
+// Authed — host
+export const host = {
+  myListings: (): Promise<{ items: any[] }> => authed('GET', '/listings'),
+  createListing: (data: Record<string, unknown>) =>
+    authed('POST', '/listings', { ...data, publish: true }),
+  reservations: (): Promise<{ items: any[] }> => authed('GET', '/reservations'),
+  reservationAction: (id: string, action: 'accept' | 'decline' | 'checkin' | 'checkout') =>
+    authed('POST', `/reservations/${id}/${action}`),
 };
