@@ -544,6 +544,39 @@ img {
 .hf-check input { width: 18px; height: 18px; accent-color: var(--teal); }
 .hf-note { font-size: 13px; color: var(--teal-dark); background: #ecfdf5; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
 .hf-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.hf-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  color: var(--teal-dark);
+  font-weight: 600;
+  font-size: 14px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.hf-upload:hover { border-color: var(--teal); background: var(--bg-soft); }
+.hf-upload input { display: none; }
+.hf-thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.hf-thumb { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; }
+.hf-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.hf-thumb button {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.75);
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
 
 /* ── Empty / misc ───────────────────────────────────────── */
 .empty {

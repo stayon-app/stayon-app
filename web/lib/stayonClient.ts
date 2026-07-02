@@ -120,8 +120,16 @@ export const stayon = {
 // Authed — host
 export const host = {
   myListings: (): Promise<{ items: any[] }> => authed('GET', '/listings'),
-  createListing: (data: Record<string, unknown>) =>
-    authed('POST', '/listings', { ...data, publish: true }),
+  // Create as a draft, then submit for Ops review → status 'pending_review'.
+  // Ops approves it in the portal before it goes live in search.
+  createListing: async (data: Record<string, unknown>) => {
+    const created = await authed('POST', '/listings', data);
+    await authed('POST', `/listings/${created.id}/submit`);
+    return created;
+  },
+  // Upload one photo (base64) → returns its public URL.
+  uploadPhoto: (b64: string, contentType: string): Promise<{ url: string }> =>
+    authed('POST', '/media/upload', { b64, contentType }),
   reservations: (): Promise<{ items: any[] }> => authed('GET', '/reservations'),
   reservationAction: (id: string, action: 'accept' | 'decline' | 'checkin' | 'checkout') =>
     authed('POST', `/reservations/${id}/${action}`),
