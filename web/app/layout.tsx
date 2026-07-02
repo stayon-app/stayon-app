@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
 import { PrefsProvider } from '@/components/PrefsProvider';
+import { StayonBridge } from '@/components/StayonBridge';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <html lang="en">
         <body>
           <PrefsProvider>
+            <StayonBridge />
             <Header />
             <main>{children}</main>
             <Footer />

@@ -36,12 +36,16 @@ function opsModule(slug, table, roles, hooks = {}) {
   }));
 
   router.post(`/${slug}/:id/:action`, authStaff(...roles), wrap(async (req, res) => {
-    const patch = { status: req.params.action, ...(req.body && typeof req.body === 'object' ? req.body : {}) };
-    const { error } = await sb.from(table).update(patch).eq('id', req.params.id);
+    const { id, action } = req.params;
+    // Default: set `status` to the action name. Modules whose action maps to a
+    // different column (e.g. markets → `enabled` boolean) supply a patch(action) hook.
+    const base = hooks.patch ? hooks.patch(action) : { status: action };
+    const patch = { ...base, ...(req.body && typeof req.body === 'object' ? req.body : {}) };
+    const { error } = await sb.from(table).update(patch).eq('id', id);
     if (error) throw error;
-    await audit(req, `${slug}.${req.params.action}`, slug, req.params.id);
-    if (hooks.onAction) await hooks.onAction(req.params.id, req.params.action, req);
-    ok(res, { id: req.params.id, status: req.params.action });
+    await audit(req, `${slug}.${action}`, slug, id);
+    if (hooks.onAction) await hooks.onAction(id, action, req);
+    ok(res, { id, ...patch });
   }));
 }
 
@@ -74,7 +78,9 @@ opsModule('disputes', 'disputes', ['support', 'finance', 'ops_manager'], {
   },
 });
 opsModule('safety-cases', 'safety_cases', ['trust_safety', 'ops_manager']);
-opsModule('markets', 'markets', ['compliance', 'ops_manager']);
+opsModule('markets', 'markets', ['compliance', 'ops_manager'], {
+  patch: (action) => ({ enabled: action === 'enabled' }),
+});
 opsModule('partners', 'partners', ['ops_manager']);
 opsModule('field-tasks', 'field_tasks', ['ops_manager']);
 opsModule('region-rules', 'region_rules', ['compliance']);
