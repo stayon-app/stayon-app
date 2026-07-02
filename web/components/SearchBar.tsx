@@ -37,14 +37,17 @@ export function SearchBar({
         <input id="q" placeholder="Search destinations" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       <div className="sb-divider" />
-      <div className="sb-seg">
-        <label htmlFor="ci">Check in</label>
-        <input id="ci" type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
-      </div>
-      <div className="sb-divider" />
-      <div className="sb-seg">
-        <label htmlFor="co">Check out</label>
-        <input id="co" type="date" value={checkOut} min={checkIn || undefined} onChange={(e) => setCheckOut(e.target.value)} />
+      {/* display:contents on desktop (keeps the flat pill); flex row on mobile */}
+      <div className="sb-dates">
+        <div className="sb-seg">
+          <label htmlFor="ci">Check in</label>
+          <input id="ci" type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+        </div>
+        <div className="sb-divider" />
+        <div className="sb-seg">
+          <label htmlFor="co">Check out</label>
+          <input id="co" type="date" value={checkOut} min={checkIn || undefined} onChange={(e) => setCheckOut(e.target.value)} />
+        </div>
       </div>
       <div className="sb-divider" />
       <div className="sb-seg sb-who">

@@ -102,6 +102,7 @@ img {
   transition: background 0.15s ease;
 }
 .host-link:hover { background: var(--bg-soft); }
+.host-word-short { display: none; }
 .fee-pill {
   font-size: 13px;
   font-weight: 600;
@@ -304,6 +305,7 @@ img {
   padding: 0;
 }
 .sb-seg input::placeholder { color: var(--slate-light); }
+.sb-dates { display: contents; } /* flat on desktop; becomes a row on mobile */
 .sb-divider { width: 1px; height: 32px; background: var(--line); flex: none; }
 .sb-search {
   display: flex;
@@ -747,4 +749,70 @@ img {
   .book-card { position: static; }
   .gallery { grid-template-columns: 1fr 1fr; }
   .gallery .g-main { grid-row: span 1; grid-column: span 2; }
+}
+
+/* ── Mobile (phones) ────────────────────────────────────── */
+@media (max-width: 720px) {
+  .container { padding: 0 16px; }
+
+  /* iOS Safari zooms into inputs under 16px — keep all form text at 16px */
+  input, select, textarea { font-size: 16px !important; }
+
+  /* Header: compact — logo · Host · globe · Log in */
+  .site-header .container { height: 58px; }
+  .brand-name { font-size: 20px; }
+  .brand-tag { display: none; }
+  .header-actions { gap: 5px; }
+  .host-link { padding: 8px 10px; font-size: 13px; }
+  .host-word-full { display: none; }
+  .host-word-short { display: inline; }
+  .hide-sm { display: none !important; }
+  .icon-btn { height: 38px; padding: 0 10px; }
+  .btn { padding: 9px 14px; font-size: 14px; }
+
+  /* Hero + sections: tighter rhythm */
+  .hero { padding: 36px 0 32px; }
+  .hero p.lede { font-size: 16px; margin-bottom: 22px; }
+  .section { padding: 30px 0; }
+  .section-head h2 { font-size: 21px; }
+  .grid { gap: 20px 14px; }
+
+  /* Search: pill → stacked card (Where / dates side-by-side / Who / Search) */
+  .searchbar {
+    flex-direction: column;
+    align-items: stretch;
+    border-radius: 20px;
+    padding: 10px;
+    gap: 8px;
+  }
+  .sb-seg { background: var(--bg-soft); border-radius: 12px; padding: 10px 14px; }
+  .sb-divider { display: none; }
+  .sb-dates { display: flex; gap: 8px; }
+  .sb-dates .sb-seg { flex: 1; min-width: 0; }
+  .sb-search { margin-left: 0; justify-content: center; padding: 14px; }
+
+  /* Stay detail */
+  .detail-title { font-size: 22px; margin-top: 18px; }
+  .detail-sub { gap: 8px; font-size: 14px; }
+  .gallery { grid-auto-rows: 130px; gap: 6px; }
+  .detail-body { gap: 26px; margin-top: 24px; }
+  .amenity-list { grid-template-columns: 1fr; }
+
+  /* Trips: stack card contents */
+  .trip-card { flex-direction: column; align-items: flex-start; padding: 16px 18px; }
+  .trip-total { font-size: 16px; }
+
+  /* Host page + form */
+  .host-cta .btn { width: 100%; justify-content: center; }
+  .hf-actions { flex-direction: column-reverse; }
+  .hf-actions .btn { width: 100%; }
+  .host-actions-cell { flex-direction: row; width: 100%; }
+  .host-actions-cell .btn { flex: 1; }
+
+  /* Globe menu: never wider than the screen */
+  .globe-menu { width: min(320px, calc(100vw - 24px)); }
+
+  /* Footer */
+  .site-footer { padding: 28px 0; }
+  .site-footer .container { flex-direction: column; gap: 6px; }
 }
