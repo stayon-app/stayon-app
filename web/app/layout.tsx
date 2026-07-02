@@ -2,9 +2,11 @@ import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
 import { PrefsProvider } from '@/components/PrefsProvider';
+import { WishlistProvider } from '@/components/WishlistProvider';
 import { StayonBridge } from '@/components/StayonBridge';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { BottomNav } from '@/components/BottomNav';
 
 export const metadata: Metadata = {
   title: 'StayOn — 0% fee stays. Hosts keep 100%.',
@@ -26,10 +28,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <html lang="en">
         <body>
           <PrefsProvider>
-            <StayonBridge />
-            <Header />
-            <main>{children}</main>
-            <Footer />
+            <WishlistProvider>
+              <StayonBridge />
+              <Header />
+              <main>{children}</main>
+              <Footer />
+              <BottomNav />
+            </WishlistProvider>
           </PrefsProvider>
         </body>
       </html>

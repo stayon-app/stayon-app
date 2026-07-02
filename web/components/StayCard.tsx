@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Listing } from '@/lib/types';
 import { Price } from './Price';
+import { WishlistButton } from './WishlistButton';
 
 export function StayCard({ stay }: { stay: Listing }) {
   const photo = stay.images?.[0];
@@ -12,6 +13,7 @@ export function StayCard({ stay }: { stay: Listing }) {
           <img src={photo} alt={stay.title} loading="lazy" />
         ) : null}
         {stay.instantBook ? <span className="badge">⚡ Instant book</span> : null}
+        <WishlistButton listingId={stay.id} />
       </div>
       <div className="meta">
         <div className="row">

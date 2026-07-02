@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getStay } from '@/lib/api';
 import { BookingWidget } from '@/components/BookingWidget';
+import { MessageHostButton } from '@/components/MessageHostButton';
 import type { Metadata } from 'next';
 
 export async function generateMetadata({
@@ -67,6 +68,7 @@ export default async function StayDetailPage({ params }: { params: { id: string 
               <span>{stay.beds} beds</span>
               <span>{stay.bathrooms} bathrooms</span>
             </div>
+            <MessageHostButton listingId={stay.id} />
           </div>
 
           {stay.description ? (
@@ -86,6 +88,27 @@ export default async function StayDetailPage({ params }: { params: { id: string 
                   <li key={a}>{a}</li>
                 ))}
               </ul>
+            </div>
+          ) : null}
+
+          {(stay as any).reviews?.length > 0 ? (
+            <div className="detail-section">
+              <h3>
+                ★ {stay.ratingAvg?.toFixed(2)} · {(stay as any).reviews.length}{' '}
+                {(stay as any).reviews.length === 1 ? 'review' : 'reviews'}
+              </h3>
+              <div className="reviews">
+                {(stay as any).reviews.slice(0, 6).map((r: any) => (
+                  <div key={r.id} className="review">
+                    <div className="review-head">
+                      <b>{r.authorName || 'Guest'}</b>
+                      <span>{'★'.repeat(Math.round(r.rating || 5))}</span>
+                    </div>
+                    <p>{r.text}</p>
+                    {r.response ? <p className="review-response">Host: {r.response}</p> : null}
+                  </div>
+                ))}
+              </div>
             </div>
           ) : null}
         </div>

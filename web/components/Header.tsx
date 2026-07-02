@@ -25,8 +25,14 @@ export function Header() {
             </SignUpButton>
           </SignedOut>
           <SignedIn>
-            <Link href="/trips" className="host-link">
+            <Link href="/wishlists" className="host-link hide-sm">
+              Wishlists
+            </Link>
+            <Link href="/trips" className="host-link hide-sm">
               Trips
+            </Link>
+            <Link href="/messages" className="host-link hide-sm">
+              Messages
             </Link>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>

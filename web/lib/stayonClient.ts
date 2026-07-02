@@ -115,6 +115,24 @@ export const stayon = {
   book: (payload: { listingId: string; checkIn: string; checkOut: string; guests: number }) =>
     authed('POST', '/bookings', payload),
   myBookings: (): Promise<{ items: any[] }> => authed('GET', '/bookings'),
+
+  // Profile (same PUT /me the app uses)
+  me: (): Promise<any> => authed('GET', '/me'),
+  updateProfile: (data: { name?: string; email?: string }) => authed('PUT', '/me', data),
+
+  // Wishlists
+  wishlists: (): Promise<{ items: { listing_id: string }[] }> => authed('GET', '/wishlists'),
+  wishlistAdd: (listingId: string) => authed('POST', '/wishlists', { listingId }),
+  wishlistRemove: (listingId: string) => authed('DELETE', `/wishlists/${listingId}`),
+
+  // Messaging (guest ↔ host threads)
+  threadOpen: (listingId: string): Promise<{ id: string }> =>
+    authed('POST', '/threads', { listingId }),
+  threads: (): Promise<{ items: any[] }> => authed('GET', '/threads'),
+  messages: (threadId: string): Promise<{ items: any[] }> =>
+    authed('GET', `/threads/${threadId}/messages`),
+  sendMessage: (threadId: string, text: string) =>
+    authed('POST', `/threads/${threadId}/messages`, { text }),
 };
 
 // Authed — host
