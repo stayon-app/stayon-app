@@ -12,7 +12,8 @@ export function Header() {
         </Link>
         <div className="header-actions">
           <Link href="/host" className="host-link">
-            Become a host
+            <span className="host-word-full">Become a host</span>
+            <span className="host-word-short">Host</span>
           </Link>
           <GlobeMenu />
           <SignedOut>
@@ -20,7 +21,7 @@ export function Header() {
               <button className="btn btn-ghost">Log in</button>
             </SignInButton>
             <SignUpButton mode="modal">
-              <button className="btn btn-primary">Sign up</button>
+              <button className="btn btn-primary hide-sm">Sign up</button>
             </SignUpButton>
           </SignedOut>
           <SignedIn>
