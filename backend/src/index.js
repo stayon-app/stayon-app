@@ -77,15 +77,22 @@ app.use((e, req, res, next) => { // eslint-disable-line no-unused-vars
   res.status(500).json({ error: { code: 'SERVER', message: 'Something went wrong' } });
 });
 
-const PORT = process.env.PORT || 4000;
-const server = app.listen(PORT, () => console.log(`StayOn backend (Supabase) listening on http://localhost:${PORT}`));
+// On Vercel (serverless) we export the app as the request handler; anywhere else
+// (local, Render, Railway, Koyeb…) we start a normal long-running server.
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 4000;
+  const server = app.listen(PORT, () => console.log(`StayOn backend (Supabase) listening on http://localhost:${PORT}`));
 
-// Graceful shutdown — finish in-flight requests, then exit (clean rolling deploys).
-function shutdown(sig) {
-  console.log(`${sig} received — shutting down gracefully`);
-  server.close(() => process.exit(0));
-  setTimeout(() => process.exit(1), 10_000).unref();
+  // Graceful shutdown — finish in-flight requests, then exit (clean rolling deploys).
+  const shutdown = (sig) => {
+    console.log(`${sig} received — shutting down gracefully`);
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+
 process.on('unhandledRejection', (reason) => console.error(JSON.stringify({ t: new Date().toISOString(), level: 'error', msg: 'unhandledRejection', reason: String(reason) })));
+
+module.exports = app;
