@@ -98,9 +98,11 @@ export function Drawer({
 
             <Sec title="ID submission (review before deciding)">
               <Kv k="Legal name" v={idn.legal_name} />
+              <Kv k="Email" v={u.email} />
+              <Kv k="Phone" v={u.phone} />
               <Kv k="Date of birth" v={idn.dob} />
               <Kv k="ID type" v={idn.id_type} />
-              <Kv k="ID number (last 4)" v={idn.id_last4 ? `•••• ${idn.id_last4}` : '—'} />
+              <Kv k="ID number" v={idn.id_number || (idn.id_last4 ? `•••• ${idn.id_last4}` : '—')} />
               <Kv k="Submitted" v={fmt(idn.submitted_at)} />
               <Kv k="Provider" v={idn.provider || 'manual review'} />
             </Sec>
@@ -117,7 +119,12 @@ export function Drawer({
                     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                       {imgs.map(([label, url]) => (
                         <div key={label as string} style={{ textAlign: 'center' }}>
-                          <div className="idimg" onContextMenu={(e) => e.preventDefault()}>
+                          <div
+                            className="idimg"
+                            title="Click to view full size"
+                            onClick={() => window.open(url as string, '_blank', 'noopener')}
+                            onContextMenu={(e) => e.preventDefault()}
+                          >
                             <img src={url as string} alt={label as string} draggable={false} />
                             <div className="idimg-wm">STAYON OPS · VIEW ONLY</div>
                           </div>

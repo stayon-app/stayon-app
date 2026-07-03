@@ -14,6 +14,7 @@ import { useHaptics } from '../hooks/useHaptics';
 import { fonts, fontSizes, spacing, borderRadius, letterSpacing } from '../constants';
 import { COUNTRIES, DEFAULT_COUNTRY, flagImageUrl, type Country } from '../constants/countries';
 import { STAYON_GRADIENT } from '../components/GradientButton';
+import { BRAND_ON } from '../../components/brandOn';
 import { CURRENCIES, getCurrencyByCountry } from '../utils/currency';
 
 export function HostLoginScreen() {
@@ -64,7 +65,7 @@ export function HostLoginScreen() {
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollBody}>
           {/* Brand */}
           <View style={styles.brandWrap}>
-            <Text style={styles.brand}>StayOn <Text style={styles.brandPill}>HOST</Text></Text>
+            <Text style={styles.brand}>Stay<Text style={styles.brandOn}>On</Text> <Text style={styles.brandPill}>HOST</Text></Text>
             <Text style={styles.tagline}>Sign in to manage your stays, calendar and earnings.</Text>
           </View>
 
@@ -191,6 +192,7 @@ const makeStyles = (colors: any) =>
     scrollBody: { flexGrow: 1, justifyContent: 'center', paddingVertical: spacing.xl },
     brandWrap: { marginBottom: spacing.xl },
     brand: { fontSize: fontSizes['3xl'], color: '#fff', ...fonts.bold },
+    brandOn: { ...BRAND_ON, ...fonts.bold },
     brandPill: { fontSize: fontSizes.sm, letterSpacing: 3, color: '#E9D5FF', ...fonts.bold },
     tagline: { fontSize: fontSizes.base, color: 'rgba(255,255,255,0.9)', marginTop: spacing.sm, lineHeight: 22, ...fonts.regular },
     card: { backgroundColor: colors.card, borderRadius: borderRadius.xl, padding: spacing.xl },

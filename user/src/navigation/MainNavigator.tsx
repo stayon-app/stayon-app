@@ -22,6 +22,8 @@ import {
   ChatScreen,
   DestinationDetailsScreen,
   ActivityDetailsScreen,
+  ExperienceDetailsScreen,
+  ExperienceCheckoutScreen,
   ReelSubmitScreen,
   ReelViewerScreen,
   PlaceDetailsScreen,
@@ -175,6 +177,8 @@ export function MainNavigator() {
         <Stack.Screen name="Chat" component={ChatScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="DestinationDetails" component={DestinationDetailsScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="ActivityDetails" component={ActivityDetailsScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="ExperienceDetails" component={ExperienceDetailsScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="ExperienceCheckout" component={ExperienceCheckoutScreen} options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="ReelSubmit" component={ReelSubmitScreen} options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="ReelViewer" component={ReelViewerScreen} options={{ animation: 'slide_from_bottom', presentation: 'fullScreenModal' }} />
         <Stack.Screen name="PlaceDetails" component={PlaceDetailsScreen} options={{ animation: 'slide_from_right' }} />

@@ -10,6 +10,7 @@ export type BookingStatus = 'upcoming' | 'completed' | 'cancelled';
 export interface Booking {
   id: string;
   confirmationCode: string;
+  kind?: 'stay' | 'experience'; // defaults to stay when absent
   property: string;
   location: string;     // city, always shown
   address?: string;     // exact street address — only revealed once confirmed

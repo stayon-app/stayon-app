@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, useWindowDimensions, Image, Platform } from 'react-native';
 import { fontSizes, fonts } from '../constants';
+import { BRAND_ON } from '../components/brandOn';
 
 const isWeb = Platform.OS === 'web';
 
@@ -463,10 +464,9 @@ function makeStyles(width: number) {
       fontFamily: "'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
     }),
   },
-  // Neon "On" — the StayOn wordmark accent.
+  // Neon green→cyan→blue gradient "On" — the StayOn wordmark accent.
   brandOn: {
-    color: '#22D3EE',
-    textShadowColor: 'rgba(34, 211, 238, 0.35)',
+    ...BRAND_ON,
   },
   brandTextSpace: {
     fontSize: isWeb ? 70 : width > 400 ? 55 : 48,

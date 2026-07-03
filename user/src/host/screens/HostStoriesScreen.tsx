@@ -22,6 +22,7 @@ export function HostStoriesScreen({ navigation }: any) {
   const [stories, setStories] = useState<HostStory[]>([]);
   const [composing, setComposing] = useState(false);
   const [title, setTitle] = useState('');
+  const [location, setLocation] = useState('');
   const [body, setBody] = useState('');
   const [cover, setCover] = useState<string | null>(null);
   const [reading, setReading] = useState<HostStory | null>(null);
@@ -44,8 +45,8 @@ export function HostStoriesScreen({ navigation }: any) {
   const post = async () => {
     if (!canPost) return;
     success();
-    setStories(await addStory({ title, body, cover: cover || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&q=80&auto=format&fit=crop' }));
-    setComposing(false); setTitle(''); setBody(''); setCover(null);
+    setStories(await addStory({ title, body, location, cover: cover || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=900&q=80&auto=format&fit=crop' }));
+    setComposing(false); setTitle(''); setLocation(''); setBody(''); setCover(null);
   };
   const remove = (id: string) => confirmAction({ title: 'Delete story?', confirmText: 'Delete', destructive: true, onConfirm: async () => setStories(await deleteStory(id)) });
 
@@ -68,6 +69,12 @@ export function HostStoriesScreen({ navigation }: any) {
                   <Text style={[styles.statusText, { color: tint }]}>{m.label}</Text>
                 </View>
                 <Text style={styles.cardTitle} numberOfLines={2}>{s.title}</Text>
+                {s.location ? (
+                  <View style={styles.cardLoc}>
+                    <Ionicons name="location-outline" size={13} color={colors.textSecondary} />
+                    <Text style={styles.cardLocText}>{s.location}</Text>
+                  </View>
+                ) : null}
                 <Text style={styles.cardExcerpt} numberOfLines={2}>{s.body}</Text>
                 <View style={styles.cardFoot}>
                   <Text style={styles.readMore}>Read</Text>
@@ -92,6 +99,10 @@ export function HostStoriesScreen({ navigation }: any) {
               )}
             </TouchableOpacity>
             <TextInput style={styles.titleInput} value={title} onChangeText={setTitle} placeholder="Story title" placeholderTextColor={colors.textTertiary} />
+            <View style={styles.locRow}>
+              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+              <TextInput style={styles.locInput} value={location} onChangeText={setLocation} placeholder="Location (e.g. Lisbon, Portugal)" placeholderTextColor={colors.textTertiary} />
+            </View>
             <TextInput style={styles.bodyInput} value={body} onChangeText={setBody} placeholder="Write your story… tips, your place’s story, a local guide." placeholderTextColor={colors.textTertiary} multiline textAlignVertical="top" />
             <Text style={styles.note}>Reviewed by the StayOn team before publishing — keep it real and helpful. No contact details.</Text>
             <TouchableOpacity activeOpacity={0.9} disabled={!canPost} onPress={post}>
@@ -112,6 +123,12 @@ export function HostStoriesScreen({ navigation }: any) {
               <Image source={{ uri: reading.cover }} style={styles.readCover} resizeMode="cover" />
               <View style={{ padding: spacing.lg }}>
                 <Text style={styles.readTitle}>{reading.title}</Text>
+                {reading.location ? (
+                  <View style={styles.cardLoc}>
+                    <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
+                    <Text style={styles.cardLocText}>{reading.location}</Text>
+                  </View>
+                ) : null}
                 <Text style={styles.readBody}>{reading.body}</Text>
               </View>
             </ScrollView>
@@ -139,6 +156,10 @@ const makeStyles = (colors: any) =>
     coverInner: { alignItems: 'center', gap: 6 },
     coverText: { fontSize: fontSizes.sm, color: colors.primary, ...fonts.semiBold },
     titleInput: { marginTop: spacing.lg, fontSize: fontSizes.xl, color: colors.textPrimary, ...fonts.bold },
+    locRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.borderLight, paddingBottom: 6 },
+    locInput: { flex: 1, fontSize: fontSizes.base, color: colors.textPrimary, ...fonts.regular },
+    cardLoc: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+    cardLocText: { fontSize: fontSizes.sm, color: colors.textSecondary, ...fonts.medium },
     bodyInput: { marginTop: spacing.md, minHeight: 200, fontSize: fontSizes.base, lineHeight: 23, color: colors.textPrimary, ...fonts.regular },
     note: { fontSize: fontSizes.sm, color: colors.textTertiary, marginTop: spacing.base, lineHeight: 18, ...fonts.regular },
     postBtn: { marginTop: spacing.lg, paddingVertical: spacing.base, borderRadius: borderRadius.lg, alignItems: 'center' },

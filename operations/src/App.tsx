@@ -84,22 +84,35 @@ function Login({ onLogin, theme, onToggleTheme }: { onLogin: (s: Staff) => void;
   };
 
   return (
-    <div className="login">
-      <div className="login-card">
-        <h1>StayOn <span style={{ color: 'var(--teal)' }}>Ops</span></h1>
-        <p>Operations control center — staff sign in.</p>
-        <input
-          className="input"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="staff email"
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
-        />
-        <button className="btn" onClick={submit} disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        {err && <p className="err">{err}</p>}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
-          <span className="muted">Seed admin: <b>ops@stayon.com</b></span>
-          <button className="a" onClick={onToggleTheme}>{theme === 'dark' ? '☀ Light' : '🌙 Dark'}</button>
+    <div className="ops-login">
+      {/* Branded hero — mirrors the user app splash/login */}
+      <div className="ops-login-hero">
+        <div className="ops-login-hero-overlay" />
+        <div className="ops-login-hero-content">
+          <div className="ops-login-brand">Stay<span className="ops-on">On</span></div>
+          <div className="ops-login-tagline">Stay Beyond Ordinary</div>
+          <div className="ops-login-kicker">Operations Control Center</div>
+        </div>
+      </div>
+
+      {/* Sign-in panel */}
+      <div className="ops-login-panel">
+        <div className="ops-login-card">
+          <h1 className="ops-login-h1">Stay<span className="ops-on">On</span> <small>Ops</small></h1>
+          <p className="ops-login-p">Operations control center — staff sign in.</p>
+          <input
+            className="input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="staff email"
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+          />
+          <button className="btn ops-login-btn" onClick={submit} disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+          {err && <p className="err">{err}</p>}
+          <div className="ops-login-foot">
+            <span className="muted">Seed admin: <b>ops@stayon.com</b></span>
+            <button className="a" onClick={onToggleTheme}>{theme === 'dark' ? '☀ Light' : '🌙 Dark'}</button>
+          </div>
         </div>
       </div>
     </div>

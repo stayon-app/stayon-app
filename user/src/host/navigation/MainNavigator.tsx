@@ -44,6 +44,8 @@ import {
   SupportScreen,
   ResourcesScreen,
   CurrencyScreen,
+  ExperiencesScreen,
+  ExperienceCreateScreen,
 } from '../screens';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -118,6 +120,8 @@ export function MainNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="Main" component={MainTabs} />
         <Stack.Screen name="Listings" component={ListingsScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="Experiences" component={ExperiencesScreen} options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="ExperienceCreate" component={ExperienceCreateScreen} options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="ListingCreate" component={ListingWizardScreen} options={{ animation: 'slide_from_bottom' }} />
         <Stack.Screen name="ListingEdit" component={ListingEditScreen} options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="ListingDetails" component={ListingDetailsScreen} options={{ animation: 'slide_from_right' }} />
