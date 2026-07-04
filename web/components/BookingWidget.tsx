@@ -113,7 +113,7 @@ export function BookingWidget({
       <div className="price-lg">
         <b>{format(priceUSD)}</b> <span>/ night</span>
       </div>
-      <div className="fee-note">0% platform fee · host keeps 100%</div>
+      <div className="fee-note">No booking fees · the price you see is what you pay</div>
 
       <div className="bw-dates">
         <label className="bw-field">

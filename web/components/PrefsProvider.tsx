@@ -4,7 +4,7 @@
 // every price on the site; language is English-only for now (seam for i18n later).
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { DEFAULT_CURRENCY, formatPrice } from '@/lib/currency';
+import { DEFAULT_CURRENCY, detectCurrency, formatPrice } from '@/lib/currency';
 
 interface PrefsValue {
   currency: string;
@@ -26,7 +26,9 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const c = localStorage.getItem(CUR_KEY);
     const l = localStorage.getItem(LANG_KEY);
+    // Stored choice wins; otherwise pick the visitor's local currency by locale.
     if (c) setCurrencyState(c);
+    else setCurrencyState(detectCurrency());
     if (l) setLanguageState(l);
   }, []);
 

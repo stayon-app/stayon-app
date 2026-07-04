@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
+
+// The website uses the SAME system font as the StayOn mobile apps
+// (their `fontFamily: 'System'`) — no webfont — so type reads identically
+// across the user app, host app and website. Stack lives in globals.css.
 import { PrefsProvider } from '@/components/PrefsProvider';
 import { WishlistProvider } from '@/components/WishlistProvider';
 import { StayonBridge } from '@/components/StayonBridge';
@@ -9,12 +13,12 @@ import { Footer } from '@/components/Footer';
 import { BottomNav } from '@/components/BottomNav';
 
 export const metadata: Metadata = {
-  title: 'StayOn — 0% fee stays. Hosts keep 100%.',
+  title: 'StayOn — stay beyond ordinary',
   description:
-    'Book extraordinary stays with zero platform fees. StayOn is a 0%-commission marketplace — guests pay less, hosts keep 100%.',
+    'Book premium, hand-picked homes, villas and hideaways with no booking fees. The price you see is the price you pay.',
   openGraph: {
     title: 'StayOn — stay beyond ordinary',
-    description: '0%-fee stays. Hosts keep 100%.',
+    description: 'Premium stays, no booking fees. The price you see is the price you pay.',
     type: 'website',
   },
 };

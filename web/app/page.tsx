@@ -1,47 +1,220 @@
 import Link from 'next/link';
 import { searchStays } from '@/lib/api';
+import type { Listing } from '@/lib/types';
 import { SearchBar } from '@/components/SearchBar';
 import { StayCard } from '@/components/StayCard';
+import { CategoryRail } from '@/components/CategoryRail';
+import { StayCarousel } from '@/components/StayCarousel';
+import { DestinationRail } from '@/components/DestinationRail';
+import { StoryCard } from '@/components/StoryCard';
+import { Reveal } from '@/components/Reveal';
+import { RotatingBg } from '@/components/RotatingBg';
+import { WizIcon } from '@/components/WizIcon';
+import { TRAVEL_STORIES } from '@/lib/stories';
+
+// Soft, slowly-cycling travel backdrop behind the home search (under a light veil).
+const HOME_TOP_BG = [
+  'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=1600&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=1600&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?w=1600&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1600&q=80&auto=format&fit=crop',
+];
+
+const HOW = [
+  { icon: 'search', title: 'Search & compare', body: 'Browse hand-picked homes with full photos, real prices and honest reviews — nothing hidden until checkout.' },
+  { icon: 'flash', title: 'Book in a tap', body: 'Reserve instantly. Verified stays, secure payments, and the price you see is the price you pay.' },
+  { icon: 'key', title: 'Arrive & unwind', body: 'Self check-in details, host messaging and 24/7 support — everything you need for a smooth stay.' },
+];
+
+// Group live stays by city, largest cities first, for the Airbnb-style rows.
+function cityRows(stays: Listing[], max = 3) {
+  const byCity = new Map<string, Listing[]>();
+  for (const s of stays) {
+    if (!s.city) continue;
+    (byCity.get(s.city) ?? byCity.set(s.city, []).get(s.city)!).push(s);
+  }
+  return [...byCity.entries()]
+    .filter(([, list]) => list.length >= 3)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, max)
+    .map(([city, list]) => ({ city, list }));
+}
 
 export default async function HomePage() {
   const { results } = await searchStays();
+  const rows = cityRows(results);
+  const favourites = results.filter((s) => s.ratingCount > 0 && (s.ratingAvg ?? 0) >= 4.8).slice(0, 12);
   const featured = results.slice(0, 8);
 
   return (
     <>
-      <section className="hero">
+      {/* ── Search-forward top (Airbnb-style) ────────────── */}
+      <section className="home-top">
+        <RotatingBg images={HOME_TOP_BG} interval={6500} className="home-top-bg" />
         <div className="container">
-          <h1>
-            Extraordinary stays, <span className="accent">zero platform fees.</span>
-          </h1>
-          <p className="lede">
-            Book direct on StayOn — guests pay less and hosts keep 100%. No commission, ever.
-          </p>
-          <SearchBar />
-          <Link href="/map" className="map-link hero-map-link">
-            🗺 Explore on the map — search any area with a custom radius
+          <div className="home-hero-mini">
+            <h1>Find your next stay</h1>
+            <p>Search deals on homes, villas and unique places to stay — no booking fees.</p>
+          </div>
+          <div className="home-search">
+            <SearchBar />
+          </div>
+          <Link href="/map" className="map-link home-map-link">
+            <WizIcon name="map" size={17} /> Or explore on the map — search any area with a custom radius
           </Link>
         </div>
       </section>
 
+      {/* ── Category rail (sticky-style row) ─────────────── */}
+      <div className="cat-bar">
+        <div className="container">
+          <CategoryRail />
+        </div>
+      </div>
+
+      {/* ── City carousels (live, grouped) ───────────────── */}
+      {rows.length > 0 ? (
+        <section className="section">
+          <div className="container" style={{ display: 'grid', gap: 44 }}>
+            {rows.map((row, i) => (
+              <Reveal key={row.city} delay={i * 60}>
+                <StayCarousel
+                  title={`Stays in ${row.city}`}
+                  stays={row.list.slice(0, 12)}
+                  href={`/search?q=${encodeURIComponent(row.city)}`}
+                />
+              </Reveal>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="section">
+          <div className="container">
+            <Reveal>
+              <div className="section-head">
+                <h2>Featured stays</h2>
+                <span className="muted">{results.length} places live now</span>
+              </div>
+            </Reveal>
+            {featured.length > 0 ? (
+              <div className="grid">
+                {featured.map((stay) => (
+                  <StayCard key={stay.id} stay={stay} />
+                ))}
+              </div>
+            ) : (
+              <div className="empty">
+                <h2>No stays to show yet</h2>
+                <p>Make sure the StayOn backend is running, then refresh.</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ── Guest favourites ─────────────────────────────── */}
+      {favourites.length >= 3 && (
+        <section className="section section-alt">
+          <div className="container">
+            <Reveal>
+              <StayCarousel title="Guest favourites" stays={favourites} href="/search" />
+            </Reveal>
+          </div>
+        </section>
+      )}
+
+      {/* ── Popular destinations ─────────────────────────── */}
       <section className="section">
         <div className="container">
-          <div className="section-head">
-            <h2>Featured stays</h2>
-            <span className="muted">{results.length} places live now</span>
+          <Reveal>
+            <div className="section-head">
+              <h2>Popular destinations</h2>
+              <span className="muted">Trending places to explore right now</span>
+            </div>
+          </Reveal>
+          <Reveal delay={80}>
+            <DestinationRail />
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── Travel stories ───────────────────────────────── */}
+      <section className="section section-alt">
+        <div className="container">
+          <Reveal>
+            <div className="section-head">
+              <h2>Travel stories</h2>
+              <span className="muted">Guides &amp; inspiration for your next trip</span>
+            </div>
+          </Reveal>
+          <div className="story-grid">
+            {TRAVEL_STORIES.map((s, i) => (
+              <Reveal key={s.title} delay={i * 80} className="reveal-scale">
+                <StoryCard story={s} />
+              </Reveal>
+            ))}
           </div>
-          {featured.length > 0 ? (
-            <div className="grid">
-              {featured.map((stay) => (
-                <StayCard key={stay.id} stay={stay} />
-              ))}
+        </div>
+      </section>
+
+      {/* ── How it works ─────────────────────────────────── */}
+      <section className="section">
+        <div className="container">
+          <Reveal>
+            <div className="section-head center">
+              <h2>How StayOn works</h2>
+              <p>Everything the big platforms do — clean, quick and honest, from search to check-in.</p>
             </div>
-          ) : (
-            <div className="empty">
-              <h2>No stays to show yet</h2>
-              <p>Make sure the StayOn backend is running on its API base, then refresh.</p>
+          </Reveal>
+          <div className="feature-3up">
+            {HOW.map((f, i) => (
+              <Reveal key={f.title} delay={i * 90} className="reveal-scale">
+                <div className="feature-card">
+                  <div className="feature-icon"><WizIcon name={f.icon} size={26} /></div>
+                  <h3>{f.title}</h3>
+                  <p>{f.body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Trust band ───────────────────────────────────── */}
+      <section className="section">
+        <div className="container">
+          <Reveal>
+            <div className="trust-band">
+              <div className="trust-band-item">
+                <div className="tbi-icon"><WizIcon name="shield" size={26} /></div>
+                <h4>Verified &amp; secure</h4>
+                <p>Every stay is checked and every payment stays safely on-platform.</p>
+              </div>
+              <div className="trust-band-item">
+                <div className="tbi-icon"><WizIcon name="tag" size={26} /></div>
+                <h4>No booking fees</h4>
+                <p>The nightly price is the price — nothing sneaks in at checkout.</p>
+              </div>
+              <div className="trust-band-item">
+                <div className="tbi-icon"><WizIcon name="clock" size={26} /></div>
+                <h4>24/7 support</h4>
+                <p>Real help before, during and after your stay, whenever you need a hand.</p>
+              </div>
             </div>
-          )}
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── CTA → host ───────────────────────────────────── */}
+      <section className="section">
+        <div className="container">
+          <Reveal>
+            <div className="cta-band">
+              <h2>Have a place of your own?</h2>
+              <p>List it on StayOn and reach travellers looking for stays just like yours.</p>
+              <Link href="/host" className="btn btn-primary btn-lg">Become a host</Link>
+            </div>
+          </Reveal>
         </div>
       </section>
     </>
