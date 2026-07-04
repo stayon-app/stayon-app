@@ -223,12 +223,51 @@ a { color: inherit; }
 
 /* 360 drawer */
 .drawer-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; justify-content: flex-end; z-index: 50; animation: fadeIn .2s ease; }
-.drawer { width: 440px; max-width: 92vw; height: 100%; background: var(--bg); border-left: 1px solid var(--border); padding: 22px; overflow: auto; box-shadow: var(--shadow-lg); animation: drawerIn .28s cubic-bezier(.2,.9,.25,1); }
+.drawer { width: 760px; max-width: 96vw; height: 100%; background: var(--bg); border-left: 1px solid var(--border); padding: 26px; overflow: auto; box-shadow: var(--shadow-lg); animation: drawerIn .28s cubic-bezier(.2,.9,.25,1); }
 @keyframes drawerIn { from { transform: translateX(40px); opacity: .4; } to { transform: none; opacity: 1; } }
 .drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; font-size: 16px; }
 .navgroup { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; }
 
 /* View-only ID images — bigger for legibility, but no download/drag/select */
-.idimg { position: relative; width: 180px; height: 120px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+.idimg { position: relative; width: 330px; height: 220px; max-width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); cursor: zoom-in; }
 .idimg img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; }
 .idimg-wm { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; font-weight: 800; letter-spacing: .05em; color: rgba(255,255,255,.45); transform: rotate(-18deg); pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+
+/* ───────── Split-screen Ops login (mirrors the user app splash/login) ───────── */
+.ops-login { display: grid; grid-template-columns: 1.05fr 1fr; min-height: 100vh; }
+
+/* Left: branded hero over a destination image */
+.ops-login-hero {
+  position: relative;
+  display: flex; align-items: center;
+  padding: 56px;
+  background-image: url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1600&h=2200&fit=crop&q=85&auto=format');
+  background-size: cover; background-position: center;
+}
+.ops-login-hero-overlay { position: absolute; inset: 0; background: linear-gradient(160deg, rgba(13,43,37,.82) 0%, rgba(8,12,18,.88) 100%); }
+.ops-login-hero-content { position: relative; z-index: 1; }
+.ops-login-brand { font-size: 64px; font-weight: 800; letter-spacing: -2px; color: #fff; line-height: 1; }
+.ops-login-tagline { margin-top: 16px; font-size: 14px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: rgba(255,255,255,.9); }
+.ops-login-kicker { margin-top: 28px; display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #00C8E6; background: rgba(0,200,230,.14); padding: 7px 14px; border-radius: 999px; }
+
+/* The neon green→cyan→blue "On" — matches the user app & website logo */
+.ops-on {
+  background: linear-gradient(110deg, #00E6B0 0%, #00C8E6 50%, #2D9CFF 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+
+/* Right: sign-in card */
+.ops-login-panel { display: grid; place-items: center; padding: 40px; background: var(--bg); }
+.ops-login-card { width: 100%; max-width: 380px; }
+.ops-login-h1 { font-size: 30px; font-weight: 800; letter-spacing: -.6px; margin: 0 0 6px; color: var(--text); }
+.ops-login-h1 small { font-size: 30px; font-weight: 800; color: var(--teal); letter-spacing: -.6px; }
+.ops-login-p { color: var(--muted); margin: 0 0 22px; font-size: 14px; }
+.ops-login-btn { width: 100%; }
+.ops-login-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+
+@media (max-width: 860px) {
+  .ops-login { grid-template-columns: 1fr; }
+  .ops-login-hero { min-height: 240px; padding: 32px; align-items: flex-end; }
+  .ops-login-brand { font-size: 44px; }
+}

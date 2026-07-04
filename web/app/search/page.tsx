@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { searchStays } from '@/lib/api';
 import { SearchBar } from '@/components/SearchBar';
 import { StayCard } from '@/components/StayCard';
@@ -39,7 +40,8 @@ export default async function SearchPage({
             {searchParams.q ? `Stays in “${searchParams.q}”` : 'All stays'}
           </h2>
           <span className="muted">
-            {total} {total === 1 ? 'place' : 'places'}
+            {total} {total === 1 ? 'place' : 'places'} ·{' '}
+            <Link href="/map" className="map-link">🗺 Map view</Link>
           </span>
         </div>
 

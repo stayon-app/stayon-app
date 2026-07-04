@@ -79,6 +79,7 @@ interface Trip {
   total: number;
   status: 'confirmed' | 'pending' | 'completed' | 'cancelled';
   bookingId: string;
+  kind?: 'stay' | 'experience';
   reviewed?: boolean;
   // Present for trips backed by the shared bookings store (needed for cancel + refund).
   fromStore?: boolean;
@@ -105,6 +106,7 @@ function bookingToTrip(b: Booking): Trip {
     total: typeof b.total === 'number' ? b.total : 0,
     status,
     bookingId: b.confirmationCode ?? '',
+    kind: b.kind ?? (String(b.confirmationCode ?? '').startsWith('EXP-') ? 'experience' : 'stay'),
     reviewed: false,
     fromStore: true,
     taxes: typeof b.taxes === 'number' ? b.taxes : 0,
@@ -763,7 +765,11 @@ export const TripsScreen: React.FC = () => {
 
           <View style={styles.tripMetaRow}>
             <Ionicons name="calendar-outline" size={14} color={colors.textSecondary} />
-            <Text style={styles.tripDatesText}>{trip.checkIn} – {trip.checkOut} · {trip.nights} nights</Text>
+            <Text style={styles.tripDatesText}>
+              {trip.kind === 'experience'
+                ? `${trip.checkIn}${trip.checkOut ? ` · ${trip.checkOut}` : ''}`
+                : `${trip.checkIn} – ${trip.checkOut} · ${trip.nights} nights`}
+            </Text>
           </View>
           <View style={styles.tripMetaRow}>
             <Ionicons name="receipt-outline" size={14} color={colors.textSecondary} />
@@ -837,8 +843,26 @@ export const TripsScreen: React.FC = () => {
             )}
           </View>
 
-          {/* Trip essentials strip */}
-          {activeTab === 'upcoming' && (() => {
+          {/* Experiences don't have check-in codes or itineraries — show a
+              simple "what to know" strip instead. */}
+          {activeTab === 'upcoming' && trip.kind === 'experience' && (
+            <View style={styles.essentials}>
+              <View style={styles.essentialRow}>
+                <View style={styles.essentialIcon}>
+                  <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
+                </View>
+                <View style={styles.essentialBody}>
+                  <Text style={styles.essentialTitle}>Experience booked</Text>
+                  <Text style={styles.essentialSub} numberOfLines={1}>
+                    {trip.checkIn || 'Date TBC'}{trip.checkOut ? ` · ${trip.checkOut}` : ''}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Trip essentials strip — stays only */}
+          {activeTab === 'upcoming' && trip.kind !== 'experience' && (() => {
             const itemCount = itineraries[trip.id]?.length ?? 0;
             const hasItinerary = itemCount > 0;
             const showCheckin = trip.status === 'confirmed';

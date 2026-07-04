@@ -40,6 +40,59 @@ async function req(method: string, path: string, body?: any) {
 const get = (p: string) => req('GET', p);
 const post = (p: string, b?: any) => req('POST', p, b);
 
+// ── Test identity-verification request (demo) ───────────────────────────────
+// A seeded KYC submission so the ops team can preview the review experience
+// without a live backend record. Surfaced in the KYC queue + its 360° drawer.
+const TEST_KYC_ID = 'TEST-KYC-SAIPRAKASH';
+const TEST_KYC_ROW = {
+  userId: TEST_KYC_ID,
+  legal_name: 'Sangam Sai Prakash Reddy',
+  id_type: 'Voter ID',
+  status: 'pending',
+};
+const TEST_KYC_360 = {
+  user: {
+    id: TEST_KYC_ID,
+    name: 'Sangam Sai Prakash Reddy',
+    email: 'saiprakash@gmail.com',
+    phone: '+91 9177238836',
+    status: 'active',
+    // Selfie / profile photo (locked once submitted on the user side).
+    avatar_url: 'https://i.pravatar.cc/400?img=13',
+  },
+  identity: {
+    status: 'pending',
+    legal_name: 'Sangam Sai Prakash Reddy',
+    dob: '—',
+    id_type: 'Voter ID',
+    id_number: 'V4289975',
+    id_last4: '9975',
+    submitted_at: '2026-06-23T08:30:00.000Z',
+    provider: 'manual review',
+    docs: {
+      // The guest must upload ID front + back, plus a selfie to match against them.
+      front: 'https://placehold.co/900x560/0d9488/ffffff?text=Voter+ID+%C2%B7+FRONT%0AV4289975',
+      back: 'https://placehold.co/900x560/334155/ffffff?text=Voter+ID+%C2%B7+BACK',
+      selfie: 'https://i.pravatar.cc/600?img=13',
+    },
+  },
+  listings: [] as any[],
+};
+// Row shape for the "Verification (KYC)" (guest verification) queue.
+const TEST_VERIFICATION_ROW = {
+  userId: TEST_KYC_ID,
+  name: 'Sangam Sai Prakash Reddy',
+  tier: 'new',
+  idType: 'Voter ID',
+  status: 'pending',
+};
+function prependRow(backend: any, row: any): any {
+  // Prepend the demo row regardless of the backend response shape.
+  if (Array.isArray(backend)) return [row, ...backend];
+  if (backend && Array.isArray(backend.items)) return { ...backend, items: [row, ...backend.items] };
+  return [row];
+}
+
 // ── API surface (mirrors backend /v1/ops/*) ────────────────────────────────
 export const OpsApi = {
   // auth
@@ -53,14 +106,16 @@ export const OpsApi = {
 
   // review queues
   queues: {
-    kyc: () => get('/ops/queues/kyc'),
+    // Demo row is shown first; falls back to just the demo row if the backend is offline.
+    kyc: () => get('/ops/queues/kyc').then((b) => prependRow(b, TEST_KYC_ROW)).catch(() => [TEST_KYC_ROW]),
     listings: () => get('/ops/queues/listings'),
     reels: () => get('/ops/queues/reels'),
     payoutChanges: () => get('/ops/queues/payout-changes'),
   },
 
   // decisions / actions (each writes audit_log + notifies the user)
-  kycDecision: (userId: string, decision: 'verify' | 'reject', reason?: string) => post(`/ops/kyc/${userId}/${decision}`, { reason }),
+  kycDecision: (userId: string, decision: 'verify' | 'reject', reason?: string) =>
+    userId === TEST_KYC_ID ? Promise.resolve({ ok: true, demo: true, decision }) : post(`/ops/kyc/${userId}/${decision}`, { reason }),
   approveListing: (id: string) => post(`/ops/listings/${id}/approve`),
   rejectListing: (id: string, reason?: string) => post(`/ops/listings/${id}/reject`, { reason }),
   reelDecision: (id: string, decision: 'approve' | 'reject') => post(`/ops/reels/${id}/${decision}`),
@@ -115,8 +170,9 @@ export const OpsApi = {
   runPayoutScheduler: () => post('/ops/payouts/run-scheduler'),
   featureFlags: () => get('/ops/feature-flags'),
   toggleFlag: (id: string) => post(`/ops/feature-flags/${id}/toggle`),
-  verification: () => get('/ops/verification'),
-  user360: (id: string) => get(`/ops/users/${id}/360`),
+  verification: () => get('/ops/verification').then((b) => prependRow(b, TEST_VERIFICATION_ROW)).catch(() => [TEST_VERIFICATION_ROW]),
+  user360: (id: string) =>
+    id === TEST_KYC_ID ? Promise.resolve(TEST_KYC_360) : get(`/ops/users/${id}/360`),
 };
 
 export type StaffRole =

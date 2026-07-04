@@ -15,6 +15,8 @@ export { BookingScreen } from './BookingScreen';
 export { ChatScreen } from './ChatScreen';
 export { DestinationDetailsScreen } from './DestinationDetailsScreen';
 export { ActivityDetailsScreen } from './ActivityDetailsScreen';
+export { ExperienceDetailsScreen } from './ExperienceDetailsScreen';
+export { ExperienceCheckoutScreen } from './ExperienceCheckoutScreen';
 export { ReelSubmitScreen } from './ReelSubmitScreen';
 export { ReelViewerScreen } from './ReelViewerScreen';
 export { PlaceDetailsScreen } from './PlaceDetailsScreen';

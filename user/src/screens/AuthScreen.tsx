@@ -17,6 +17,7 @@ import { fontSizes, fonts, spacing, borderRadius } from '../constants';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { STAYON_GRADIENT } from '../components/GradientButton';
+import { BRAND_ON } from '../components/brandOn';
 import { useHaptics } from '../hooks/useHaptics';
 import { CountryPickerModal } from '../components/CountryPickerModal';
 import { DEFAULT_COUNTRY, Country, flagImageUrl } from '../constants/countries';
@@ -383,7 +384,8 @@ function makeStyles(height: number) {
     textAlign: 'center',
   },
   brandOn: {
-    color: '#06D6B4',
+    // Neon green→cyan→blue gradient accent — matches the website + splash logo.
+    ...BRAND_ON,
     fontWeight: '800',
   },
   tagline: {

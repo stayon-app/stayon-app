@@ -21,7 +21,6 @@ import {
   PLACE_TYPES, PLACE_KINDS, WHO_ELSE_OPTIONS, HIGHLIGHTS, DISCOUNT_OPTIONS,
   AMENITY_OPTIONS, AMENITY_CATEGORY_ORDER, SAFETY_OPTIONS, MIN_PHOTOS,
 } from '../data/listings';
-import { Api } from '../api';
 
 const PHASE1 = ['p1intro', 'type', 'kind', 'location', 'basics', 'bathrooms', 'whoelse'];
 const PHASE2 = ['p2intro', 'amenities', 'photos', 'title', 'highlights', 'description'];
@@ -67,19 +66,7 @@ export function ListingWizardScreen({ navigation }: any) {
     if (i < STEPS.length - 1) { setI(i + 1); return; }
     // final → publish
     success();
-    const listing = { ...d, status: 'published' as const, instantBook: d.bookingApproval === 'instant', title: d.title.trim(), address: d.address.trim(), city: d.city.trim(), country: d.country.trim() };
-    // Publish to the shared backend so the listing is searchable by guests.
-    // Best-effort: if the backend is offline it stays local-only on this device.
-    Api.listings.create({
-      title: listing.title, type: listing.type, placeType: listing.placeType, description: listing.description,
-      address: listing.address, city: listing.city, state: listing.state, country: listing.country, zipcode: listing.zipcode,
-      lat: listing.latitude, lng: listing.longitude,
-      guests: listing.guests, bedrooms: listing.bedrooms, beds: listing.beds, bathrooms: listing.bathrooms,
-      priceUSD: listing.price, weekendPriceUSD: listing.weekendPrice, cleaningFeeUSD: listing.cleaningFee,
-      images: listing.images, amenities: listing.amenities, instantBook: listing.instantBook,
-      safety: listing.safety, publish: true,
-    }).catch(() => { /* offline → local only */ });
-    saveListing(listing).then(() => navigation.goBack());
+    saveListing({ ...d, status: 'published', instantBook: d.bookingApproval === 'instant', title: d.title.trim(), address: d.address.trim(), city: d.city.trim(), country: d.country.trim() }).then(() => navigation.goBack());
   };
   const saveExit = () => confirmAction({ title: 'Save & exit?', message: 'Your progress is kept as a draft.', confirmText: 'Save & exit', onConfirm: () => { saveListing({ ...d, status: 'draft' }).then(() => navigation.goBack()); } });
 

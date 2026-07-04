@@ -1,0 +1,46 @@
+name: Deploy to production
+
+# Auto-deploys on every push to main. Each host builds from its own root
+# directory using env vars set in that host's dashboard:
+#   backend/     → Render      (Node web service)
+#   web/         → Vercel      (Next.js)
+#   operations/  → Vercel      (Vite static SPA)
+# This workflow just triggers each host's Deploy Hook. Any hook that isn't
+# configured yet is skipped, so it's safe to merge before the hosts exist.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Trigger production deploys
+    runs-on: ubuntu-latest
+    steps:
+      - name: Backend → Render
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -n "$HOOK" ]; then
+            echo "→ Render (backend)"; curl -fsSL -X POST "$HOOK" >/dev/null && echo "  ✓ triggered"
+          else echo "⏭  RENDER_DEPLOY_HOOK not set — skipping backend"; fi
+
+      - name: Website → Vercel
+        env:
+          HOOK: ${{ secrets.VERCEL_WEB_DEPLOY_HOOK }}
+        run: |
+          if [ -n "$HOOK" ]; then
+            echo "→ Vercel (web)"; curl -fsSL -X POST "$HOOK" >/dev/null && echo "  ✓ triggered"
+          else echo "⏭  VERCEL_WEB_DEPLOY_HOOK not set — skipping website"; fi
+
+      - name: Ops portal → Vercel
+        env:
+          HOOK: ${{ secrets.VERCEL_OPS_DEPLOY_HOOK }}
+        run: |
+          if [ -n "$HOOK" ]; then
+            echo "→ Vercel (ops)"; curl -fsSL -X POST "$HOOK" >/dev/null && echo "  ✓ triggered"
+          else echo "⏭  VERCEL_OPS_DEPLOY_HOOK not set — skipping ops portal"; fi

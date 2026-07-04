@@ -710,10 +710,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.sectionTitle}>StayReels</Text>
             </View>
-            <TouchableOpacity style={styles.reelPostBtn} onPress={() => { light(); checkAuthBeforeAction(() => navigation.navigate('ReelSubmit'), navigation); }} activeOpacity={0.85}>
-              <Ionicons name="add" size={15} color={themeColors.primary} />
-              <Text style={[styles.reelPostText, { color: themeColors.primary }]}>Post a reel</Text>
-            </TouchableOpacity>
+            {/* Reels are posted by hosts only — guests view them here. */}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: spacing.lg }}>
             {(() => {

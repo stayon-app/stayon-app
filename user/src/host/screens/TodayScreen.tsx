@@ -105,6 +105,7 @@ export function TodayScreen({ navigation }: any) {
 
   const TOOLS = [
     { icon: 'home-outline', label: 'Listings', route: 'Listings' },
+    { icon: 'sparkles-outline', label: 'Experiences', route: 'Experiences' },
     { icon: 'calendar-outline', label: 'Calendar', route: 'CalendarTab', tab: true },
     { icon: 'clipboard-outline', label: 'Reservations', route: 'ReservationsTab', tab: true, badge: pending },
     { icon: 'stats-chart-outline', label: 'Earnings', route: 'Earnings' },

@@ -8,6 +8,7 @@ export const API = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000/v1
 
 const ACCESS = 'stayon_access_token';
 const REFRESH = 'stayon_refresh_token';
+const NEW_USER = 'stayon_is_new_user';
 
 export class ApiError extends Error {
   code: string;
@@ -41,12 +42,21 @@ export async function exchangeClerkToken(clerkToken: string): Promise<boolean> {
     const json = await res.json();
     if (json.accessToken && json.refreshToken) {
       setTokens(json.accessToken, json.refreshToken);
+      localStorage.setItem(NEW_USER, json.isNewUser ? '1' : '0');
       return true;
     }
     return false;
   } catch {
     return false;
   }
+}
+
+/** Reads and clears the "was this a brand-new StayOn user" flag set by the last exchange. */
+export function consumeIsNewUser(): boolean {
+  if (typeof window === 'undefined') return false;
+  const v = localStorage.getItem(NEW_USER);
+  localStorage.removeItem(NEW_USER);
+  return v === '1';
 }
 
 /**
@@ -134,6 +144,9 @@ export const stayon = {
   sendMessage: (threadId: string, text: string) =>
     authed('POST', `/threads/${threadId}/messages`, { text }),
 };
+
+// Authed — profile (used by the post-signup "Set up your profile" step)
+export const updateMe = (name: string, email: string) => authed('PUT', '/me', { name, email });
 
 // Authed — host
 export const host = {

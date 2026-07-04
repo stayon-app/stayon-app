@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { searchStays } from '@/lib/api';
 import { SearchBar } from '@/components/SearchBar';
 import { StayCard } from '@/components/StayCard';
@@ -17,6 +18,9 @@ export default async function HomePage() {
             Book direct on StayOn — guests pay less and hosts keep 100%. No commission, ever.
           </p>
           <SearchBar />
+          <Link href="/map" className="map-link hero-map-link">
+            🗺 Explore on the map — search any area with a custom radius
+          </Link>
         </div>
       </section>
 
