@@ -1,17 +1,18 @@
 'use client';
 
-// Interactive map search — Leaflet + OpenStreetMap tiles (free, no key) with:
+// Interactive map search on Google Maps (hybrid/satellite), matching the mobile
+// apps' map design. Features:
 //  · location search via Nominatim geocoding (free, no key)
 //  · a draggable center pin + adjustable radius circle
 //  · live results from the backend's geo search (/search?lat&lng&radius)
-// Price pins are L.divIcons (no image assets → no bundler icon issues).
+//  · custom price-pill overlays that open an info popup
 
-import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type * as LT from 'leaflet';
 import Link from 'next/link';
 import { usePrefs } from './PrefsProvider';
+import { WizIcon } from './WizIcon';
 import { API } from '@/lib/stayonClient';
+import { loadGoogleMaps } from '@/lib/googleMaps';
 import type { Listing } from '@/lib/types';
 
 interface Suggestion {
@@ -27,11 +28,14 @@ export function MapSearch() {
   const { format } = usePrefs();
 
   const mapEl = useRef<HTMLDivElement>(null);
-  const LRef = useRef<typeof LT | null>(null);
-  const mapRef = useRef<LT.Map | null>(null);
-  const pinRef = useRef<LT.Marker | null>(null);
-  const circleRef = useRef<LT.Circle | null>(null);
-  const staysLayerRef = useRef<LT.LayerGroup | null>(null);
+  const gRef = useRef<any>(null);
+  const mapRef = useRef<any>(null);
+  const pinRef = useRef<any>(null);
+  const circleRef = useRef<any>(null);
+  const infoRef = useRef<any>(null);
+  const overlaysRef = useRef<any[] | null>(null);
+  const pinFactoryRef = useRef<((s: Listing & { distanceKm?: number }) => any) | null>(null);
+  const [ready, setReady] = useState(false);
 
   const [center, setCenter] = useState(DEFAULT_CENTER);
   const [radius, setRadius] = useState(DEFAULT_RADIUS);
@@ -42,77 +46,101 @@ export function MapSearch() {
   const [loadingStays, setLoadingStays] = useState(false);
   const [placed, setPlaced] = useState(false); // has the user picked a location yet?
 
-  // ── boot Leaflet (client-only) ────────────────────────────────────────────
+  // ── boot Google Maps (client-only) ────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const L = (await import('leaflet')).default as unknown as typeof LT;
-      if (cancelled || !mapEl.current || mapRef.current) return;
-      LRef.current = L;
+    loadGoogleMaps()
+      .then((google) => {
+        if (cancelled || !mapEl.current || mapRef.current) return;
+        gRef.current = google;
+        const map = new google.maps.Map(mapEl.current, {
+          center: DEFAULT_CENTER,
+          zoom: 5,
+          mapTypeId: 'hybrid',
+          mapTypeControl: true,
+          mapTypeControlOptions: { mapTypeIds: ['roadmap', 'hybrid', 'satellite'] },
+          streetViewControl: false,
+          fullscreenControl: true,
+          gestureHandling: 'greedy',
+          clickableIcons: false,
+        });
+        map.addListener('click', (e: any) => {
+          setCenter({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+          setPlaced(true);
+        });
+        mapRef.current = map;
+        infoRef.current = new google.maps.InfoWindow();
 
-      const map = L.map(mapEl.current, { zoomControl: true }).setView(
-        [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng],
-        5,
-      );
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(map);
-
-      staysLayerRef.current = L.layerGroup().addTo(map);
-
-      // Click anywhere to (re)place the search center
-      map.on('click', (e: LT.LeafletMouseEvent) => {
-        setCenter({ lat: e.latlng.lat, lng: e.latlng.lng });
-        setPlaced(true);
-      });
-
-      mapRef.current = map;
-    })();
-    return () => {
-      cancelled = true;
-      mapRef.current?.remove();
-      mapRef.current = null;
-    };
+        // Custom price-pill overlay (reuses the .price-pin CSS).
+        class PricePin extends google.maps.OverlayView {
+          div: HTMLDivElement | null = null;
+          constructor(private stay: Listing & { distanceKm?: number }) { super(); }
+          onAdd() {
+            const d = document.createElement('div');
+            d.className = 'price-pin';
+            d.style.position = 'absolute';
+            d.textContent = format(this.stay.priceUSD);
+            d.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const s = this.stay;
+              infoRef.current.setContent(
+                `<a href="/stay/${s.id}" class="map-pop">
+                   ${s.images?.[0] ? `<img src="${s.images[0]}" alt="" style="width:100%;height:96px;object-fit:cover;border-radius:8px"/>` : ''}
+                   <b>${s.title}</b>
+                   <span>${format(s.priceUSD)} / night${s.distanceKm != null ? ` · ${s.distanceKm} km away` : ''}</span>
+                 </a>`,
+              );
+              infoRef.current.setPosition({ lat: s.lat, lng: s.lng });
+              infoRef.current.open(mapRef.current);
+            });
+            this.div = d;
+            this.getPanes()!.floatPane.appendChild(d);
+          }
+          draw() {
+            if (!this.div) return;
+            const p = this.getProjection().fromLatLngToDivPixel(
+              new google.maps.LatLng(this.stay.lat, this.stay.lng),
+            );
+            if (p) { this.div.style.left = `${p.x}px`; this.div.style.top = `${p.y}px`; }
+          }
+          onRemove() { this.div?.remove(); this.div = null; }
+        }
+        pinFactoryRef.current = (s) => new PricePin(s);
+        setReady(true);
+      })
+      .catch(() => { /* map failed to load — controls + list still work */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── keep pin + circle in sync with center/radius ──────────────────────────
+  // ── keep center pin + radius circle in sync ───────────────────────────────
   useEffect(() => {
-    const L = LRef.current, map = mapRef.current;
-    if (!L || !map || !placed) return;
-
-    const pinIcon = L.divIcon({
-      className: 'center-pin',
-      html: '<div class="center-pin-dot"></div>',
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
-    });
+    const google = gRef.current, map = mapRef.current;
+    if (!google || !map || !placed) return;
 
     if (!pinRef.current) {
-      pinRef.current = L.marker([center.lat, center.lng], { draggable: true, icon: pinIcon }).addTo(map);
-      pinRef.current.on('dragend', () => {
-        const p = pinRef.current!.getLatLng();
-        setCenter({ lat: p.lat, lng: p.lng });
+      pinRef.current = new google.maps.Marker({
+        position: center, map, draggable: true,
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#0d9488', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3 },
+      });
+      pinRef.current.addListener('dragend', (e: any) => {
+        setCenter({ lat: e.latLng.lat(), lng: e.latLng.lng() });
       });
     } else {
-      pinRef.current.setLatLng([center.lat, center.lng]);
+      pinRef.current.setPosition(center);
     }
 
     if (!circleRef.current) {
-      circleRef.current = L.circle([center.lat, center.lng], {
-        radius: radius * 1000,
-        color: '#0d9488',
-        weight: 2,
-        fillColor: '#0d9488',
-        fillOpacity: 0.08,
-      }).addTo(map);
+      circleRef.current = new google.maps.Circle({
+        center, radius: radius * 1000, map,
+        strokeColor: '#0d9488', strokeWeight: 2, fillColor: '#0d9488', fillOpacity: 0.08,
+      });
     } else {
-      circleRef.current.setLatLng([center.lat, center.lng]);
+      circleRef.current.setCenter(center);
       circleRef.current.setRadius(radius * 1000);
     }
-
-    map.fitBounds(circleRef.current.getBounds(), { padding: [30, 30] });
-  }, [center, radius, placed]);
+    map.fitBounds(circleRef.current.getBounds(), 30);
+  }, [center, radius, placed, ready]);
 
   // ── fetch stays inside the circle ─────────────────────────────────────────
   useEffect(() => {
@@ -124,42 +152,22 @@ export function MapSearch() {
       .then((j) => !cancelled && setStays(j.results || []))
       .catch(() => !cancelled && setStays([]))
       .finally(() => !cancelled && setLoadingStays(false));
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [center, radius, placed]);
 
   // ── render price pins ─────────────────────────────────────────────────────
   useEffect(() => {
-    const L = LRef.current, layer = staysLayerRef.current;
-    if (!L || !layer) return;
-    layer.clearLayers();
-    stays.forEach((s) => {
-      if (s.lat == null || s.lng == null) return;
-      const icon = L.divIcon({
-        className: 'price-pin-wrap',
-        html: `<div class="price-pin">${format(s.priceUSD)}</div>`,
-        iconSize: [0, 0],
-      });
-      const m = L.marker([s.lat, s.lng], { icon });
-      m.bindPopup(
-        `<a href="/stay/${s.id}" class="map-pop">
-           ${s.images?.[0] ? `<img src="${s.images[0]}" alt=""/>` : ''}
-           <b>${s.title}</b>
-           <span>${format(s.priceUSD)} / night${s.distanceKm != null ? ` · ${s.distanceKm} km away` : ''}</span>
-         </a>`,
-        { closeButton: false },
-      );
-      layer.addLayer(m);
-    });
-  }, [stays, format]);
+    const factory = pinFactoryRef.current, map = mapRef.current;
+    if (!factory || !map) return;
+    (overlaysRef.current || []).forEach((o) => o.setMap(null));
+    overlaysRef.current = stays
+      .filter((s) => s.lat != null && s.lng != null)
+      .map((s) => { const pin = factory(s); pin.setMap(map); return pin; });
+  }, [stays, format, ready]);
 
   // ── Nominatim location search ─────────────────────────────────────────────
   const geocode = useCallback(async (q: string) => {
-    if (q.trim().length < 3) {
-      setSuggestions([]);
-      return;
-    }
+    if (q.trim().length < 3) { setSuggestions([]); return; }
     setSearching(true);
     try {
       const res = await fetch(
@@ -173,7 +181,6 @@ export function MapSearch() {
     }
   }, []);
 
-  // debounce typing
   useEffect(() => {
     const t = setTimeout(() => geocode(query), 400);
     return () => clearTimeout(t);
@@ -213,7 +220,7 @@ export function MapSearch() {
             </div>
           )}
         </div>
-        <button className="btn btn-ghost" onClick={useMyLocation}>📍 My location</button>
+        <button className="btn btn-ghost sb-inline-ic" onClick={useMyLocation}><WizIcon name="navigate" size={15} /> My location</button>
         <label className="radius-ctl">
           <span>Radius <b>{radius} km</b></span>
           <input
@@ -230,7 +237,7 @@ export function MapSearch() {
       <div className="map-canvas" ref={mapEl}>
         {!placed && (
           <div className="map-overlay-hint">
-            Search a place above, tap the map, or use 📍 — then drag the pin and tune the radius.
+            Search a place above, tap the map, or use “My location” — then drag the pin and tune the radius.
           </div>
         )}
       </div>
@@ -254,7 +261,7 @@ export function MapSearch() {
               <div className="meta">
                 <div className="row"><span className="title">{s.title}</span></div>
                 <div className="place">{s.city}{s.country ? `, ${s.country}` : ''}</div>
-                <div className="price"><b>{format(s.priceUSD)}</b> <span className="price-suffix">night · 0% fee</span></div>
+                <div className="price"><b>{format(s.priceUSD)}</b> <span className="price-suffix">night</span></div>
               </div>
             </Link>
           ))}
