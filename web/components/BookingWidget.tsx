@@ -10,6 +10,8 @@ interface Quote {
   nights: number;
   nightlyUSD: number;
   subtotalUSD: number;
+  discountUSD?: number;
+  promo?: { code: string; valid: boolean; reason?: string; label?: string } | null;
   cleaningUSD: number;
   taxesUSD: number;
   totalUSD: number;
@@ -37,6 +39,7 @@ export function BookingWidget({
   const [calOpen, setCalOpen] = useState(false);
   const calRef = useRef<HTMLDivElement>(null);
   const [guests, setGuests] = useState(String(baseGuests || 1));
+  const [promo, setPromo] = useState('');
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [error, setError] = useState('');
@@ -94,7 +97,9 @@ export function BookingWidget({
     let cancelled = false;
     setQuoting(true);
     setError('');
-    const qs = new URLSearchParams({ checkIn, checkOut, guests }).toString();
+    const qsObj: Record<string, string> = { checkIn, checkOut, guests };
+    if (promo.trim()) qsObj.promo = promo.trim().toUpperCase();
+    const qs = new URLSearchParams(qsObj).toString();
     getQuote(stayId, qs)
       .then((q) => !cancelled && setQuote(q))
       .catch(() => !cancelled && setError('Could not get a price for those dates.'))
@@ -102,7 +107,7 @@ export function BookingWidget({
     return () => {
       cancelled = true;
     };
-  }, [stayId, checkIn, checkOut, guests, datesValid]);
+  }, [stayId, checkIn, checkOut, guests, promo, datesValid]);
 
   const reserve = async () => {
     if (!datesValid) {
@@ -121,7 +126,10 @@ export function BookingWidget({
         setError('Could not start your session. Please try again.');
         return;
       }
-      const res = await stayon.book({ listingId: stayId, checkIn, checkOut, guests: Number(guests) });
+      const res = await stayon.book({
+        listingId: stayId, checkIn, checkOut, guests: Number(guests),
+        ...(promo.trim() && quote?.promo?.valid ? { promo: promo.trim().toUpperCase() } : {}),
+      } as any);
       setConfirmed({ code: res.code, status: res.status });
     } catch (e: any) {
       setError(e?.message || 'Could not complete the booking.');
@@ -187,12 +195,32 @@ export function BookingWidget({
         <input type="number" min={1} max={maxGuests || undefined} value={guests} onChange={(e) => setGuests(e.target.value)} />
       </label>
 
+      {/* Promo code */}
+      <label className="bw-field bw-promo">
+        <span>Promo code</span>
+        <input
+          value={promo}
+          onChange={(e) => setPromo(e.target.value.toUpperCase())}
+          placeholder="e.g. STAYON10"
+          autoComplete="off"
+        />
+      </label>
+      {quote?.promo && !quote.promo.valid && (
+        <p className="bw-promo-bad">“{quote.promo.code}” isn&apos;t a valid code.</p>
+      )}
+
       {quote && (
         <div className="bw-breakdown">
           <div className="bw-row">
             <span>{format(quote.nightlyUSD)} × {quote.nights} {quote.nights === 1 ? 'night' : 'nights'}</span>
-            <span>{format(quote.subtotalUSD)}</span>
+            <span>{format(quote.subtotalUSD + (quote.discountUSD || 0))}</span>
           </div>
+          {(quote.discountUSD || 0) > 0 && quote.promo?.valid && (
+            <div className="bw-row bw-discount">
+              <span>{quote.promo.code} — {quote.promo.label || 'discount'}</span>
+              <span>−{format(quote.discountUSD || 0)}</span>
+            </div>
+          )}
           {quote.cleaningUSD > 0 && (
             <div className="bw-row">
               <span>Cleaning fee</span>

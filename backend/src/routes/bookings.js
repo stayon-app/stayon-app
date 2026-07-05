@@ -17,7 +17,8 @@ const {
   notify,
   bookingOut,
   resvOut,
-  listingOut
+  listingOut,
+  PROMOS
 } = require('../utils/helpers');
 
 async function syncStatus(code, status) {
@@ -27,7 +28,7 @@ async function syncStatus(code, status) {
 }
 
 router.post('/bookings', authUser, wrap(async (req, res) => {
-  const { listingId, checkIn, checkOut, guests } = req.body || {};
+  const { listingId, checkIn, checkOut, guests, promo } = req.body || {};
   const l = await one('listings', { id: listingId });
   if (!l || l.status !== 'published') return err(res, 'NOTFOUND', 'listing not available', 404);
 
@@ -60,7 +61,24 @@ router.post('/bookings', authUser, wrap(async (req, res) => {
   if (existing) return ok(res, { id: existing.id, code, status: existing.status, deduped: true });
   const nights = Math.max(1, Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000) || 1);
   const nightly = nightlyForGuestsRow(l, Number(guests) || (l.extra?.baseGuests || 1));
-  const subtotal = nightly * nights, cleaning = l.cleaning_fee_usd || 0;
+  let subtotal = nightly * nights;
+  const cleaning = l.cleaning_fee_usd || 0;
+
+  // Promo redemption — validated server-side for every client.
+  let discount = 0, promoApplied = null;
+  if (promo) {
+    const pdef = PROMOS[String(promo).trim().toUpperCase()];
+    if (!pdef) return err(res, 'PROMO', 'That promo code is not valid.');
+    if (pdef.firstOnly) {
+      const { data: prior } = await sb.from('bookings')
+        .select('id').eq('guest_id', req.auth.sub).neq('status', 'cancelled').limit(1);
+      if ((prior || []).length) return err(res, 'PROMO', `${pdef.code} is only valid on your first booking.`);
+    }
+    discount = Math.round(subtotal * (pdef.pct / 100));
+    subtotal -= discount;
+    promoApplied = { code: pdef.code, pct: pdef.pct, discountUSD: discount };
+  }
+
   const taxes = Math.round((subtotal + cleaning) * TAX_RATE), total = subtotal + cleaning + taxes;
   const status = l.instant_book ? 'confirmed' : 'pending';
   const booking = await insertRow('bookings', {
@@ -92,7 +110,7 @@ router.post('/bookings', authUser, wrap(async (req, res) => {
     pay = { status: intent.status, clientSecret: intent.clientSecret, provider: payments.PROVIDER };
   } catch { /* escrow tracked via status */ }
   await notify(l.host_id, l.instant_book ? 'booking.confirmed' : 'booking.request', { code });
-  ok(res, { id: booking.id, code, status, payment: pay });
+  ok(res, { id: booking.id, code, status, payment: pay, promo: promoApplied });
 }));
 
 router.get('/bookings', authUser, wrap(async (req, res) => {

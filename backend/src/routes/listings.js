@@ -12,6 +12,7 @@ const {
   err,
   listingOut,
   publicListingOut,
+  PROMOS,
   reviewOut,
   effectiveNightly,
   nightlyForGuestsRow,
@@ -214,8 +215,26 @@ router.get('/listings/:id/quote', wrap(async (req, res) => {
   const guests = Number(req.query.guests) || (l.extra?.baseGuests || 1);
   const nightly = nightlyForGuestsRow(l, guests);
   const subtotal = nightly * nights, cleaning = l.cleaning_fee_usd || 0;
-  const taxes = Math.round((subtotal + cleaning) * TAX_RATE);
-  ok(res, { nights, nightlyUSD: nightly, baseNightlyUSD: l.price_usd || 0, subtotalUSD: subtotal, cleaningUSD: cleaning, taxesUSD: taxes, platformFeeUSD: 0, totalUSD: subtotal + cleaning + taxes });
+
+  // Promo code (e.g. STAYON10) — quote shows the discount; the booking route
+  // enforces the first-booking rule for real (quotes can be unauthenticated).
+  let promo = null, discount = 0;
+  if (req.query.promo) {
+    const p = PROMOS[String(req.query.promo).trim().toUpperCase()];
+    if (!p) promo = { code: String(req.query.promo).trim().toUpperCase(), valid: false, reason: 'Unknown code' };
+    else {
+      discount = Math.round(subtotal * (p.pct / 100));
+      promo = { code: p.code, valid: true, pct: p.pct, label: p.label, discountUSD: discount, note: p.firstOnly ? 'Valid on your first booking' : undefined };
+    }
+  }
+  const sub = subtotal - discount;
+  const taxes = Math.round((sub + cleaning) * TAX_RATE);
+  ok(res, {
+    nights, nightlyUSD: nightly, baseNightlyUSD: l.price_usd || 0,
+    subtotalUSD: sub, discountUSD: discount, promo,
+    cleaningUSD: cleaning, taxesUSD: taxes, platformFeeUSD: 0,
+    totalUSD: sub + cleaning + taxes,
+  });
 }));
 
 module.exports = router;

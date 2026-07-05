@@ -192,6 +192,12 @@ function nightlyForGuestsRow(row, guests) {
   return Math.round((row.price_usd || 0) * (1 + ((row.extra?.extraGuestPct || 0) / 100) * extras));
 }
 
+// Promo codes — single source of truth for every client (apps + websites).
+// firstOnly promos are enforced at booking time against the guest's history.
+const PROMOS = {
+  STAYON10: { code: 'STAYON10', pct: 10, label: '10% off your first booking', firstOnly: true },
+};
+
 const bookingOut = (r) => r && ({
   id: r.id,
   code: r.code,
@@ -269,6 +275,7 @@ module.exports = {
   userOut,
   listingOut,
   publicListingOut,
+  PROMOS,
   extraGuestsCount,
   effectiveNightly,
   nightlyForGuestsRow,
