@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
+import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import { GlobeMenu } from './GlobeMenu';
 import { usePrefs } from './PrefsProvider';
 
@@ -13,6 +13,8 @@ export function Header() {
   const { t } = usePrefs();
   // On the host surface, the guest search (nav + scroll pill) does not belong.
   const isHost = pathname?.startsWith('/host') ?? false;
+  // /search has its own sticky search bar — never duplicate it with the pill.
+  const isSearch = pathname?.startsWith('/search') ?? false;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -20,6 +22,9 @@ export function Header() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Auth screens are pure splash + card — no site chrome at all.
+  if (pathname?.startsWith('/sign-in') || pathname?.startsWith('/sign-up')) return null;
 
   return (
     <header className={`site-header${scrolled ? ' is-scrolled' : ''}`}>
@@ -32,10 +37,11 @@ export function Header() {
             Both are always mounted; CSS shows one based on `is-scrolled`
             (avoids remounting on every scroll, which can crash React's DOM diff). */}
         {!isHost && (
-          <div className="header-center">
+          <div className={`header-center${isSearch ? ' no-pill' : ''}`}>
             <nav className="header-nav" aria-label="Primary">
               <Link href="/search">{t('Stays')}</Link>
-              <Link href="/map">{t('Explore')}</Link>
+              <Link href="/explore">{t('Explore')}</Link>
+              <Link href="/saved">{t('Saved')}</Link>
               <Link href="/trips">{t('Trips')}</Link>
             </nav>
             <Link href="/search" className="header-search-pill" aria-label="Search stays" tabIndex={scrolled ? 0 : -1}>
@@ -57,12 +63,9 @@ export function Header() {
           </Link>
           <GlobeMenu />
           <SignedOut>
-            <SignInButton mode="modal">
-              <button className="btn btn-ghost">{t('Log in')}</button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <button className="btn btn-primary hide-sm">{t('Sign up')}</button>
-            </SignUpButton>
+            {/* Real pages (not modals) so Log in / Sign up always navigate. */}
+            <Link href="/sign-in" className="btn btn-ghost">{t('Log in')}</Link>
+            <Link href="/sign-up" className="btn btn-primary hide-sm">{t('Sign up')}</Link>
           </SignedOut>
           <SignedIn>
             <Link href="/trips" className="host-link">

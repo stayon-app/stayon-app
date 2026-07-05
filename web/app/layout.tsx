@@ -26,6 +26,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <ClerkProvider
       appearance={{ variables: { colorPrimary: '#0d9488' } }}
       afterSignOutUrl="/"
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
     >
       <html lang="en">
         <body>

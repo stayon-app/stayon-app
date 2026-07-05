@@ -43,3 +43,14 @@ export function useWishlist(id: string): [boolean, () => void] {
 export function wishlistCount(): number {
   return load().size;
 }
+
+/** All saved ids (for the /saved page). */
+export function wishlistIds(): string[] {
+  return [...load()];
+}
+
+/** Subscribe to wishlist changes; returns unsubscribe. */
+export function onWishlistChange(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => { listeners.delete(fn); };
+}

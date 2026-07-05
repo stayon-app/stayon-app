@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { useAuth, useClerk } from '@clerk/nextjs';
+import { useAuth } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 import { usePrefs } from '@/components/PrefsProvider';
 import { CreateListingForm } from '@/components/CreateListingForm';
 import { Price } from '@/components/Price';
@@ -44,10 +45,10 @@ const HOST_FAQ = [
 ];
 
 const HOST_PRICE_CONTROL = [
-  { img: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=1000&q=80&auto=format&fit=crop', title: 'You set the nightly price', line: 'High or low — your call, any day.' },
-  { img: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&h=1000&q=80&auto=format&fit=crop', title: 'Weekend & seasonal rates', line: 'Charge what your dates are worth.' },
-  { img: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=1000&q=80&auto=format&fit=crop', title: 'Your own discounts', line: 'Weekly, monthly — you decide.' },
-  { img: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800&h=1000&q=80&auto=format&fit=crop', title: 'Block any dates', line: 'Your calendar, always in your control.' },
+  { icon: 'cash', title: 'You set the nightly price', line: 'High or low — your call, any day.' },
+  { icon: 'calendar', title: 'Weekend & seasonal rates', line: 'Charge what your dates are worth.' },
+  { icon: 'tag', title: 'Your own discounts', line: 'Weekly, monthly — you decide.' },
+  { icon: 'lock', title: 'Block any dates', line: 'Your calendar, always in your control.' },
 ];
 
 const HOST_FAQ_CARDS = [
@@ -58,7 +59,8 @@ const HOST_FAQ_CARDS = [
 
 export default function HostPage() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const { openSignIn } = useClerk();
+  const router = useRouter();
+  const openSignIn = () => router.push('/sign-up');
   const { format, t } = usePrefs();
 
   const [listings, setListings] = useState<any[]>([]);
@@ -302,14 +304,11 @@ export default function HostPage() {
             </Reveal>
             <div className="price-control">
               {HOST_PRICE_CONTROL.map((c, i) => (
-                <Reveal key={c.title} delay={i * 70} className={i % 2 === 0 ? 'reveal-left' : 'reveal-right'}>
-                  <div className="pc-tile">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={c.img} alt="" loading="lazy" />
-                    <div className="pc-tile-cap">
-                      <h3>{t(c.title)}</h3>
-                      <p>{t(c.line)}</p>
-                    </div>
+                <Reveal key={c.title} delay={i * 70}>
+                  <div className="pc-min">
+                    <span className="pc-min-ic"><WizIcon name={c.icon} size={22} /></span>
+                    <h3>{t(c.title)}</h3>
+                    <p>{t(c.line)}</p>
                   </div>
                 </Reveal>
               ))}

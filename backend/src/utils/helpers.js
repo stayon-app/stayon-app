@@ -164,6 +164,18 @@ const listingOut = (r) => r && ({
   hostLanguages: r.extra?.languages || [],
 });
 
+// PUBLIC shape (search + unauthenticated listing detail): the exact address
+// stays private until a guest has booked. Street/zip are stripped and the
+// coordinates are rounded (~100 m) so guests see the AREA, never the door.
+const publicListingOut = (r) => {
+  const l = listingOut(r);
+  if (!l) return l;
+  const { address, zipcode, ...pub } = l;
+  if (pub.lat != null) pub.lat = Math.round(pub.lat * 1000) / 1000;
+  if (pub.lng != null) pub.lng = Math.round(pub.lng * 1000) / 1000;
+  return pub;
+};
+
 function extraGuestsCount(baseGuests, maxGuests, guests) {
   const baseG = baseGuests || 1;
   const maxG = maxGuests || baseG;
@@ -256,6 +268,7 @@ module.exports = {
   wrap,
   userOut,
   listingOut,
+  publicListingOut,
   extraGuestsCount,
   effectiveNightly,
   nightlyForGuestsRow,

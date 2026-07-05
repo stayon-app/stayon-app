@@ -4,6 +4,7 @@ import { getStay } from '@/lib/api';
 import { BookingWidget } from '@/components/BookingWidget';
 import { StayLocationMap } from '@/components/StayLocationMap';
 import { StayGallery } from '@/components/StayGallery';
+import { RecordStayView } from '@/components/RecentlyViewed';
 import { StayAmenities } from '@/components/StayAmenities';
 import { StayReviews } from '@/components/StayReviews';
 import type { Metadata } from 'next';
@@ -36,6 +37,7 @@ export default async function StayDetailPage({ params }: { params: { id: string 
 
   return (
     <div className="container">
+      <RecordStayView id={stay.id} />
       <h1 className="detail-title">{stay.title}</h1>
       <div className="detail-sub">
         {stay.ratingCount > 0 ? (

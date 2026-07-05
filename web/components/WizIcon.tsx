@@ -46,6 +46,7 @@ const P: Record<string, JSX.Element> = {
   cash: <><rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.6" /><path d="M6 9v6M18 9v6" /></>,
   verified: <><path d="M12 3.2 14 5l2.7-.3.6 2.6L20 9.2l-1.4 2.3L20 13.8 17.3 15l-.6 2.6L14 17.3 12 19l-2-1.7-2.7.3L6.7 15 4 13.8l1.4-2.3L4 9.2l2.7-1.9.6-2.6L10 5l2-1.8Z" /><path d="m9 12 2 2 4-4" /></>,
   compass: <><circle cx="12" cy="12" r="9" /><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z" /></>,
+  filters: <><path d="M4 7h16M7 12h10M10 17h4" /></>,
 };
 
 export function WizIcon({ name, size = 24, style }: { name: string; size?: number; style?: CSSProperties }) {

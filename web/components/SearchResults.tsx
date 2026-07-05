@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { StayCard } from './StayCard';
-import { usePrefs } from './PrefsProvider';
+import { WizIcon } from './WizIcon';
+import { FilterSheet, DEFAULT_FILTERS, applyFilters, countActive, type FilterState } from './FilterSheet';
 import type { Listing } from '@/lib/types';
 
 // Map touches window → client-only, no SSR.
@@ -14,29 +15,20 @@ const SearchMap = dynamic(() => import('./SearchMap').then((m) => m.SearchMap), 
 
 const PAGE_SIZE = 18;
 
-type Filters = { maxPrice: number; minBeds: number; type: string; instant: boolean; fav: boolean };
-
 export function SearchResults({ stays, query, total }: { stays: Listing[]; query?: string; total: number }) {
-  const { format } = usePrefs();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [f, setF] = useState<FilterState>(DEFAULT_FILTERS);
 
-  // Price bound + property types from the current result set.
-  const priceCap = useMemo(() => Math.max(50, ...stays.map((s) => s.priceUSD || 0)), [stays]);
-  const types = useMemo(() => ['Any', ...Array.from(new Set(stays.map((s) => s.type).filter(Boolean)))], [stays]);
-  const [f, setF] = useState<Filters>({ maxPrice: priceCap, minBeds: 0, type: 'Any', instant: false, fav: false });
-  useEffect(() => { setF((p) => ({ ...p, maxPrice: priceCap })); }, [priceCap]);
+  const filtered = useMemo(() => applyFilters(stays, f), [stays, f]);
+  const activeFilters = countActive(f);
+  const reset = () => setF(DEFAULT_FILTERS);
 
-  const filtered = useMemo(() => stays.filter((s) => {
-    if ((s.priceUSD || 0) > f.maxPrice) return false;
-    if ((s.bedrooms || 0) < f.minBeds) return false;
-    if (f.type !== 'Any' && s.type !== f.type) return false;
-    if (f.instant && !s.instantBook) return false;
-    if (f.fav && !(s.ratingCount > 0 && (s.ratingAvg ?? 0) >= 4.8)) return false;
-    return true;
-  }), [stays, f]);
-  const activeFilters = (f.maxPrice < priceCap ? 1 : 0) + (f.minBeds > 0 ? 1 : 0) + (f.type !== 'Any' ? 1 : 0) + (f.instant ? 1 : 0) + (f.fav ? 1 : 0);
-  const reset = () => setF({ maxPrice: priceCap, minBeds: 0, type: 'Any', instant: false, fav: false });
+  // Quick-chip helpers (mirror the app's QuickFiltersBar shortcuts).
+  const quickOn = (id: string) => f.recommended.includes(id);
+  const quickToggle = (id: string) =>
+    setF((p) => ({ ...p, recommended: p.recommended.includes(id) ? p.recommended.filter((x) => x !== id) : [...p.recommended, id] }));
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageStays = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
@@ -63,23 +55,27 @@ export function SearchResults({ stays, query, total }: { stays: Listing[]; query
           <span className="muted">{filtered.length} {filtered.length === 1 ? 'stay' : 'stays'}{activeFilters > 0 ? ` of ${total}` : ''}</span>
         </div>
 
-        {/* Filter bar */}
+        {/* Filter bar — Filters button opens the app-style sheet; quick chips */}
         <div className="search-filters">
-          <label className="sf-price">
-            <span>Up to {format(f.maxPrice)}</span>
-            <input type="range" min={50} max={priceCap} step={10} value={f.maxPrice} onChange={(e) => setF({ ...f, maxPrice: Number(e.target.value) })} />
-          </label>
-          <select className="sf-select" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} aria-label="Property type">
-            {types.map((t) => <option key={t} value={t}>{t === 'Any' ? 'Any type' : t}</option>)}
-          </select>
-          <select className="sf-select" value={f.minBeds} onChange={(e) => setF({ ...f, minBeds: Number(e.target.value) })} aria-label="Minimum bedrooms">
-            <option value={0}>Any beds</option>
-            {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}+ bed{n > 1 ? 's' : ''}</option>)}
-          </select>
-          <button type="button" className={`sf-chip${f.instant ? ' is-on' : ''}`} onClick={() => setF({ ...f, instant: !f.instant })}>Instant book</button>
-          <button type="button" className={`sf-chip${f.fav ? ' is-on' : ''}`} onClick={() => setF({ ...f, fav: !f.fav })}>Guest favourite</button>
-          {activeFilters > 0 && <button type="button" className="sf-reset" onClick={reset}>Clear ({activeFilters})</button>}
+          <button type="button" className={`sf-filters-btn${activeFilters > 0 ? ' is-on' : ''}`} onClick={() => setSheetOpen(true)}>
+            <WizIcon name="filters" size={16} /> Filters{activeFilters > 0 ? ` · ${activeFilters}` : ''}
+          </button>
+          <button type="button" className={`sf-chip${quickOn('instant') ? ' is-on' : ''}`} onClick={() => quickToggle('instant')}>
+            <WizIcon name="flash" size={14} /> Instant book
+          </button>
+          <button type="button" className={`sf-chip${quickOn('guest_fav') ? ' is-on' : ''}`} onClick={() => quickToggle('guest_fav')}>
+            <WizIcon name="star" size={14} /> Guest favourite
+          </button>
+          {activeFilters > 0 && <button type="button" className="sf-reset" onClick={reset}>Clear all ({activeFilters})</button>}
         </div>
+
+        <FilterSheet
+          open={sheetOpen}
+          initial={f}
+          countFor={(draft) => applyFilters(stays, draft).length}
+          onClose={() => setSheetOpen(false)}
+          onApply={setF}
+        />
 
         {pageStays.length > 0 ? (
           <div className="search-grid">
@@ -89,8 +85,17 @@ export function SearchResults({ stays, query, total }: { stays: Listing[]; query
           </div>
         ) : (
           <div className="empty">
-            <h2>No stays match your search</h2>
-            <p>Try a different destination or fewer filters.</p>
+            {query && stays.length === 0 ? (
+              <>
+                <h2>No available stays in “{query}” for your search</h2>
+                <p>Everything may be booked for those dates or your group size — try different dates, fewer guests, or another destination. New places are added every week.</p>
+              </>
+            ) : (
+              <>
+                <h2>No stays match your filters</h2>
+                <p>Try removing a filter or widening your price range.</p>
+              </>
+            )}
           </div>
         )}
 
@@ -98,7 +103,9 @@ export function SearchResults({ stays, query, total }: { stays: Listing[]; query
       </div>
 
       <div className="search-map-col">
-        <SearchMap stays={pageStays} activeId={activeId} onSelect={setActiveId} />
+        {/* All filtered results on the map (not just this page); when nothing is
+            mappable, the map geocodes the query and centres on that place. */}
+        <SearchMap stays={filtered} activeId={activeId} onSelect={setActiveId} fallbackQuery={query} />
       </div>
     </div>
   );

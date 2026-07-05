@@ -7,7 +7,7 @@ type Lang = 'en' | 'hi' | 'fr' | 'es';
 
 const HI: Record<string, string> = {
   // chrome
-  'Stays': 'ठहराव', 'Explore': 'खोजें', 'Trips': 'यात्राएँ',
+  'Stays': 'ठहराव', 'Explore': 'खोजें', 'Trips': 'यात्राएँ', 'Saved': 'सहेजे गए',
   'Become a host': 'होस्ट बनें', 'Host': 'होस्ट', 'Log in': 'लॉग इन', 'Sign up': 'साइन अप',
   'Search stays': 'ठहराव खोजें', 'Map search': 'मानचित्र खोज', 'Your trips': 'आपकी यात्राएँ',
   'Company': 'कंपनी', 'About StayOn': 'StayOn के बारे में', 'Careers': 'करियर',
@@ -47,7 +47,7 @@ const HI: Record<string, string> = {
 };
 
 const FR: Record<string, string> = {
-  'Stays': 'Séjours', 'Explore': 'Explorer', 'Trips': 'Voyages',
+  'Stays': 'Séjours', 'Explore': 'Explorer', 'Trips': 'Voyages', 'Saved': 'Enregistrés',
   'Become a host': 'Devenir hôte', 'Host': 'Hôte', 'Log in': 'Connexion', 'Sign up': "S'inscrire",
   'Search stays': 'Rechercher des séjours', 'Map search': 'Recherche sur carte', 'Your trips': 'Vos voyages',
   'Company': 'Entreprise', 'About StayOn': 'À propos de StayOn', 'Careers': 'Carrières',
@@ -82,7 +82,7 @@ const FR: Record<string, string> = {
 };
 
 const ES: Record<string, string> = {
-  'Stays': 'Alojamientos', 'Explore': 'Explorar', 'Trips': 'Viajes',
+  'Stays': 'Alojamientos', 'Explore': 'Explorar', 'Trips': 'Viajes', 'Saved': 'Guardados',
   'Become a host': 'Conviértete en anfitrión', 'Host': 'Anfitrión', 'Log in': 'Iniciar sesión', 'Sign up': 'Registrarse',
   'Search stays': 'Buscar alojamientos', 'Map search': 'Búsqueda en mapa', 'Your trips': 'Tus viajes',
   'Company': 'Empresa', 'About StayOn': 'Acerca de StayOn', 'Careers': 'Empleo',

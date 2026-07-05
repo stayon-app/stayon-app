@@ -3,7 +3,7 @@
 // Three-phase "list your place" wizard for the host website, mirroring the host
 // app's ListingWizardScreen (overview → tell us about your place → make it stand
 // out → finish up & publish). Monochrome solid-line icons; no colour glyphs.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { host } from '@/lib/stayonClient';
 import { usePrefs } from './PrefsProvider';
 import { Price } from './Price';
@@ -26,7 +26,7 @@ const INTRO = {
 
 type Draft = {
   type: string; placeType: 'entire' | 'room' | 'shared';
-  address: string; area: string; city: string; state: string; country: string; zipcode: string;
+  address: string; landmark: string; area: string; city: string; state: string; country: string; zipcode: string;
   guests: number; bedrooms: number; beds: number; bathrooms: number;
   bedroomLock: boolean | null; bathroomKind: 'private' | 'dedicated' | 'shared';
   whoElse: string[]; amenities: string[]; images: { file: File; preview: string }[];
@@ -48,6 +48,8 @@ function readFile(file: File): Promise<{ b64: string; contentType: string }> {
   });
 }
 
+const DRAFT_KEY = 'stayon_listing_draft';
+
 export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
   const { format } = usePrefs();
   const [i, setI] = useState(0);
@@ -56,7 +58,7 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
   const [error, setError] = useState('');
   const [d, setD] = useState<Draft>({
     type: '', placeType: 'entire',
-    address: '', area: '', city: '', state: '', country: 'India', zipcode: '',
+    address: '', landmark: '', area: '', city: '', state: '', country: 'India', zipcode: '',
     guests: 2, bedrooms: 1, beds: 1, bathrooms: 1,
     bedroomLock: null, bathroomKind: 'private',
     whoElse: [], amenities: [], images: [],
@@ -67,6 +69,21 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
   });
   const set = (p: Partial<Draft>) => setD((prev) => ({ ...prev, ...p }));
   const id = STEPS[i];
+
+  // Restore a saved draft (Save & exit) once on open.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved?.d) setD((prev) => ({ ...prev, ...saved.d, images: [] }));
+      if (typeof saved?.i === 'number') setI(Math.min(saved.i, STEPS.length - 1));
+      setStatus('Draft restored — re-attach your photos on the photo step.');
+    } catch { /* corrupt draft is ignored */ }
+  }, []);
 
   const toggle = (key: 'amenities' | 'safety' | 'whoElse' | 'highlights', v: string, max?: number) => {
     const cur = d[key];
@@ -95,6 +112,16 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
     set({ images: [...d.images, ...next].slice(0, 20) });
   };
 
+  // Save & exit — keep the draft (photos can't persist across reloads; the
+  //   host re-attaches them, exactly like a browser refresh mid-upload).
+  const saveExit = () => {
+    try {
+      const { images, ...rest } = d;
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ d: rest, i }));
+    } catch { /* draft is best-effort */ }
+    onCancel();
+  };
+
   const back = () => (i === 0 ? onCancel() : setI(i - 1));
   const next = async () => {
     if (i < STEPS.length - 1) { setI(i + 1); return; }
@@ -108,12 +135,24 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
         const { url } = await host.uploadPhoto(b64, contentType);
         images.push(url);
       }
+      // Geocode the address so the listing shows on search maps (best-effort).
+      setStatus('Locating your address…');
+      let lat: number | undefined, lng: number | undefined;
+      try {
+        const q = [d.address, d.area, d.city, d.state, d.country].filter((x) => x.trim()).join(', ');
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`);
+        const hit = res.ok ? (await res.json())[0] : null;
+        if (hit) { lat = parseFloat(hit.lat); lng = parseFloat(hit.lon); }
+      } catch { /* non-fatal — listing just won't be mapped yet */ }
+
       setStatus('Submitting for review…');
       await host.createListing({
         title: d.title.trim(), type: d.type, placeType: d.placeType,
         description: d.description.trim(),
-        address: d.address.trim(), area: d.area.trim(), city: d.city.trim(),
+        address: d.landmark.trim() ? `${d.address.trim()} (near ${d.landmark.trim()})` : d.address.trim(),
+        area: d.area.trim(), city: d.city.trim(),
         state: d.state.trim(), country: d.country.trim(), zipcode: d.zipcode.trim(),
+        lat, lng,
         guests: d.guests, bedrooms: d.bedrooms, beds: d.beds, bathrooms: d.bathrooms,
         priceUSD: d.priceUSD,
         weekendPriceUSD: Math.round(d.priceUSD * (1 + d.weekendPct / 100)),
@@ -122,6 +161,7 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
         instantBook: d.bookingApproval === 'instant',
         safety: d.safety,
       });
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       onCreated();
     } catch (err: any) {
       setError(err?.message || 'Could not create the listing.');
@@ -136,7 +176,7 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
       {/* Top bar */}
       <div className="wiz-top">
         <span className="wiz-brand">StayOn</span>
-        <button type="button" className="wiz-exit" onClick={onCancel}>Save &amp; exit</button>
+        <button type="button" className="wiz-exit" onClick={saveExit}>Save &amp; exit</button>
       </div>
 
       <div className="wiz-scroll">
@@ -197,6 +237,7 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
             <h2 className="wiz-h2">Where's your place located?</h2>
             <p className="wiz-lead">Your exact address is only shared with guests after they've booked.</p>
             <Field label="Street address" value={d.address} onChange={(v) => set({ address: v })} ph="House no. & street" />
+            <Field label="Nearby landmark (optional)" value={d.landmark} onChange={(v) => set({ landmark: v })} ph="Landmark" />
             <div className="wiz-row2">
               <Field label="District / locality" value={d.area} onChange={(v) => set({ area: v })} ph="Locality" />
               <Field label="City / town" value={d.city} onChange={(v) => set({ city: v })} ph="City" />

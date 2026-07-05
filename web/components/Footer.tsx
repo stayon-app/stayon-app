@@ -1,12 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { NewsletterSignup } from './NewsletterSignup';
 import { WizIcon } from './WizIcon';
 import { usePrefs } from './PrefsProvider';
 
 export function Footer() {
   const { t } = usePrefs();
+  const pathname = usePathname();
+  // Auth screens are pure splash + card — no footer.
+  if (pathname?.startsWith('/sign-in') || pathname?.startsWith('/sign-up')) return null;
   return (
     <footer className="site-footer">
       {/* Newsletter strip */}

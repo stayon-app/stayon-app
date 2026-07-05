@@ -3,6 +3,8 @@
 // Search-results map on Google Maps (hybrid/satellite), matching the mobile
 // apps. Plots stays as custom price-pill overlays; the active pin highlights,
 // and clicking a pin calls onSelect so the list can highlight/scroll to it.
+// When no stays are mappable, the map geocodes `fallbackQuery` (the searched
+// city/state) and centres there instead of showing the whole world.
 import { useEffect, useRef } from 'react';
 import { usePrefs } from './PrefsProvider';
 import { loadGoogleMaps } from '@/lib/googleMaps';
@@ -12,10 +14,13 @@ export function SearchMap({
   stays,
   activeId,
   onSelect,
+  fallbackQuery,
 }: {
   stays: Listing[];
   activeId: string | null;
   onSelect: (id: string | null) => void;
+  /** Searched place — the map centres here when no stays have coordinates. */
+  fallbackQuery?: string;
 }) {
   const { format } = usePrefs();
   const elRef = useRef<HTMLDivElement>(null);
@@ -23,6 +28,7 @@ export function SearchMap({
   const mapRef = useRef<any>(null);
   const pinFactoryRef = useRef<((s: Listing, active: boolean) => any) | null>(null);
   const overlaysRef = useRef<any[] | null>(null);
+  const geocodedFor = useRef<string | null>(null);
 
   const withCoords = stays.filter((s) => s.lat != null && s.lng != null);
 
@@ -73,7 +79,7 @@ export function SearchMap({
         pinFactoryRef.current = (s, active) => new PricePin(s, active);
 
         renderPins();
-        fitBounds();
+        locate();
       })
       .catch(() => { /* map failed to load — the empty state shows */ });
     return () => { cancelled = true; };
@@ -91,22 +97,41 @@ export function SearchMap({
     });
   };
 
-  const fitBounds = () => {
+  // Fit to mapped stays — or geocode the searched place and centre on it.
+  const locate = () => {
     const google = gRef.current, map = mapRef.current;
-    if (!google || !map || withCoords.length === 0) return;
-    const bounds = new google.maps.LatLngBounds();
-    withCoords.forEach((s) => bounds.extend(new google.maps.LatLng(s.lat, s.lng)));
-    map.fitBounds(bounds, 48);
-    if (withCoords.length === 1) map.setZoom(13);
+    if (!google || !map) return;
+    if (withCoords.length > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      withCoords.forEach((s) => bounds.extend(new google.maps.LatLng(s.lat, s.lng)));
+      map.fitBounds(bounds, 48);
+      if (withCoords.length === 1) map.setZoom(13);
+      return;
+    }
+    const q = (fallbackQuery || '').trim();
+    if (!q || geocodedFor.current === q) return;
+    geocodedFor.current = q;
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((res: { lat: string; lon: string }[]) => {
+        if (!res?.[0] || !mapRef.current) return;
+        mapRef.current.setCenter({ lat: parseFloat(res[0].lat), lng: parseFloat(res[0].lon) });
+        mapRef.current.setZoom(11);
+      })
+      .catch(() => { /* keep default view */ });
   };
 
-  // Re-render pins on list/active change; refit only when the list changes.
+  // Re-render pins on list/active change; re-locate only when the list changes.
   useEffect(() => { renderPins(); /* eslint-disable-next-line */ }, [stays, activeId, format]);
-  useEffect(() => { fitBounds(); /* eslint-disable-next-line */ }, [stays]);
+  useEffect(() => { locate(); /* eslint-disable-next-line */ }, [stays, fallbackQuery]);
 
   return (
     <div className="search-map" ref={elRef}>
-      {withCoords.length === 0 && <div className="search-map-empty">No mapped stays for this search.</div>}
+      {withCoords.length === 0 && (
+        <div className="search-map-empty">
+          {fallbackQuery ? `No mapped stays for “${fallbackQuery}” yet — showing the area.` : 'No mapped stays for this search.'}
+        </div>
+      )}
     </div>
   );
 }

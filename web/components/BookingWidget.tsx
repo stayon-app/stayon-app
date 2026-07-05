@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth, useClerk } from '@clerk/nextjs';
 import { usePrefs } from './PrefsProvider';
-import { getQuote, ensureStayonSession, stayon } from '@/lib/stayonClient';
+import { getQuote, ensureStayonSession, stayon, API } from '@/lib/stayonClient';
+import { RangeCalendar, isoDay, fmtDay } from './RangeCalendar';
 
 interface Quote {
   nights: number;
@@ -31,8 +32,10 @@ export function BookingWidget({
   const { openSignIn } = useClerk();
   const { format } = usePrefs();
 
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
+  const [ci, setCi] = useState<Date | null>(null);
+  const [co, setCo] = useState<Date | null>(null);
+  const [calOpen, setCalOpen] = useState(false);
+  const calRef = useRef<HTMLDivElement>(null);
   const [guests, setGuests] = useState(String(baseGuests || 1));
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
@@ -40,7 +43,48 @@ export function BookingWidget({
   const [booking, setBooking] = useState(false);
   const [confirmed, setConfirmed] = useState<{ code: string; status: string } | null>(null);
 
-  const datesValid = checkIn && checkOut && new Date(checkOut) > new Date(checkIn);
+  const checkIn = ci ? isoDay(ci) : '';
+  const checkOut = co ? isoDay(co) : '';
+  const datesValid = !!(ci && co && co > ci);
+
+  // Reserved dates for THIS stay — struck out in the calendar so the guest
+  // can see exactly which days are already taken.
+  const [unavailable, setUnavailable] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/listings/${stayId}/availability`)
+      .then((r) => r.json())
+      .then((a) => {
+        if (cancelled) return;
+        const set = new Set<string>();
+        for (const b of a.booked || []) {
+          for (let d = new Date(b.from + 'T00:00:00'); isoDay(d) < b.to; d.setDate(d.getDate() + 1)) set.add(isoDay(d));
+        }
+        for (const day of a.blocked || []) set.add(day);
+        setUnavailable(set);
+      })
+      .catch(() => { /* calendar just won't grey days */ });
+    return () => { cancelled = true; };
+  }, [stayId]);
+  const isBlocked = useMemo(() => (d: Date) => unavailable.has(isoDay(d)), [unavailable]);
+
+  const pickDay = (d: Date) => {
+    if (!ci || (ci && co)) { setCi(d); setCo(null); }
+    else if (d > ci) setCo(d);
+    else setCi(d);
+  };
+
+  // Close the calendar on outside click / Escape.
+  useEffect(() => {
+    if (!calOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (calRef.current && !calRef.current.contains(e.target as Node)) setCalOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setCalOpen(false);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [calOpen]);
 
   useEffect(() => {
     if (!datesValid) {
@@ -115,15 +159,28 @@ export function BookingWidget({
       </div>
       <div className="fee-note">No booking fees · the price you see is what you pay</div>
 
-      <div className="bw-dates">
-        <label className="bw-field">
-          <span>Check in</span>
-          <input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
-        </label>
-        <label className="bw-field">
-          <span>Check out</span>
-          <input type="date" value={checkOut} min={checkIn || undefined} onChange={(e) => setCheckOut(e.target.value)} />
-        </label>
+      {/* Custom StayOn calendar (not the browser default) — reserved dates
+          are struck out so you can see exactly what's taken. */}
+      <div className="bw-cal-wrap" ref={calRef}>
+        <button type="button" className="bw-dates bw-dates-btn" onClick={() => setCalOpen((o) => !o)}>
+          <span className="bw-field">
+            <span>Check in</span>
+            <b className={ci ? '' : 'bw-empty'}>{ci ? fmtDay(ci) : 'Add date'}</b>
+          </span>
+          <span className="bw-field">
+            <span>Check out</span>
+            <b className={co ? '' : 'bw-empty'}>{co ? fmtDay(co) : 'Add date'}</b>
+          </span>
+        </button>
+        {calOpen && (
+          <div className="sb-pop bw-cal-pop" role="dialog" aria-label="Choose dates">
+            <RangeCalendar checkIn={ci} checkOut={co} onPick={pickDay} isBlocked={isBlocked} months={1} />
+            <div className="cal-foot">
+              <button type="button" className="cal-clear" onClick={() => { setCi(null); setCo(null); }}>Clear dates</button>
+              <button type="button" className="btn btn-primary hf-sm" onClick={() => setCalOpen(false)} disabled={!datesValid}>Done</button>
+            </div>
+          </div>
+        )}
       </div>
       <label className="bw-field bw-guests">
         <span>Guests</span>

@@ -3,25 +3,17 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { POPULAR_DESTINATIONS } from '@/lib/destinations';
+import { RangeCalendar } from './RangeCalendar';
+import { API } from '@/lib/stayonClient';
+
+// Live place suggestions built from the backend's real inventory.
+interface Place { city: string; state?: string; country?: string; count: number }
 
 type Pop = 'where' | 'dates' | 'guests' | null;
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const parse = (s: string) => (s ? new Date(s + 'T00:00:00') : null);
-const sameDay = (a: Date | null, b: Date | null) => !!a && !!b && iso(a) === iso(b);
 const fmt = (d: Date | null) => (d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '');
-
-// Grid of Date cells for a given month (leading blanks as null).
-function monthCells(year: number, month: number): (Date | null)[] {
-  const first = new Date(year, month, 1);
-  const cells: (Date | null)[] = Array(first.getDay()).fill(null);
-  const days = new Date(year, month + 1, 0).getDate();
-  for (let d = 1; d <= days; d++) cells.push(new Date(year, month, d));
-  return cells;
-}
 
 export function SearchBar({
   initialQ = '',
@@ -43,9 +35,39 @@ export function SearchBar({
   const [open, setOpen] = useState<Pop>(null);
   const rootRef = useRef<HTMLFormElement>(null);
 
+  // Real place list for type-ahead — fetched once on first "Where" focus.
+  const [places, setPlaces] = useState<Place[] | null>(null);
+  const fetchedRef = useRef(false);
+  const loadPlaces = () => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    fetch(`${API}/search`)
+      .then((r) => r.json())
+      .then((j) => {
+        const map = new Map<string, Place>();
+        for (const s of j.results || []) {
+          if (!s.city) continue;
+          const key = s.city.toLowerCase();
+          const cur = map.get(key);
+          if (cur) cur.count += 1;
+          else map.set(key, { city: s.city, state: s.state, country: s.country, count: 1 });
+        }
+        setPlaces([...map.values()].sort((a, b) => a.city.localeCompare(b.city)));
+      })
+      .catch(() => setPlaces([]));
+  };
+
+  // Typed letters → matching places, alphabetically sorted (startsWith first).
+  const matches = useMemo(() => {
+    if (!places || !q.trim()) return [];
+    const needle = q.trim().toLowerCase();
+    const starts = places.filter((p) => p.city.toLowerCase().startsWith(needle));
+    const contains = places.filter((p) => !p.city.toLowerCase().startsWith(needle) &&
+      (`${p.city} ${p.state || ''} ${p.country || ''}`.toLowerCase().includes(needle)));
+    return [...starts, ...contains].slice(0, 8);
+  }, [places, q]);
+
   const guests = adults + children;
-  const today = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
-  const [viewMonth, setViewMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
 
   useEffect(() => {
     if (!open) return;
@@ -88,8 +110,12 @@ export function SearchBar({
 
   const nights = checkIn && checkOut ? Math.round((+checkOut - +checkIn) / 86400000) : 0;
 
+  // Availability needs all three: WHERE + WHEN + WHO (like any real booking
+  // platform) — the Search button stays off until the trio is complete.
+  const canSearch = !!(q.trim() && checkIn && checkOut && guests > 0);
+
   return (
-    <form className="searchbar" onSubmit={(e) => { e.preventDefault(); go(buildParams()); }} ref={rootRef}>
+    <form className="searchbar" onSubmit={(e) => { e.preventDefault(); if (canSearch) go(buildParams()); }} ref={rootRef}>
       {/* WHERE */}
       <div className="sb-seg sb-where">
         <label htmlFor="q">Where</label>
@@ -98,19 +124,42 @@ export function SearchBar({
           placeholder="Search destinations"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onFocus={() => setOpen('where')}
+          onFocus={() => { setOpen('where'); loadPlaces(); }}
           autoComplete="off"
         />
         {open === 'where' && (
-          <div className="sb-pop sb-pop-where" role="listbox" aria-label="Popular destinations">
-            <div className="sb-pop-head">Popular destinations</div>
-            {POPULAR_DESTINATIONS.map((d) => (
-              <button type="button" key={d.city} className="sb-dest" onClick={() => go(buildParams({ q: d.city }))}>
-                <span className="sb-dest-pin"><PinIcon /></span>
-                <span className="sb-dest-text"><b>{d.city}, {d.country}</b><span>{d.tagline}</span></span>
-                <span className="sb-dest-count">{d.stays} stays</span>
-              </button>
-            ))}
+          <div className="sb-pop sb-pop-where" role="listbox" aria-label="Destinations">
+            {q.trim() ? (
+              /* Type-ahead: real places from live inventory, sorted A→Z */
+              matches.length > 0 ? (
+                <>
+                  <div className="sb-pop-head">Places matching “{q.trim()}”</div>
+                  {matches.map((p) => (
+                    <button type="button" key={p.city} className="sb-dest" onClick={() => { setQ(p.city); setOpen('dates'); }}>
+                      <span className="sb-dest-pin"><PinIcon /></span>
+                      <span className="sb-dest-text">
+                        <b>{p.city}{p.state ? `, ${p.state}` : ''}</b>
+                        <span>{p.country || ''}</span>
+                      </span>
+                      <span className="sb-dest-count">{p.count} {p.count === 1 ? 'stay' : 'stays'}</span>
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <div className="sb-pop-head">{places === null ? 'Searching places…' : `No places match “${q.trim()}” yet — coming soon`}</div>
+              )
+            ) : (
+              <>
+                <div className="sb-pop-head">Popular destinations</div>
+                {POPULAR_DESTINATIONS.map((d) => (
+                  <button type="button" key={d.city} className="sb-dest" onClick={() => { setQ(d.city); setOpen('dates'); }}>
+                    <span className="sb-dest-pin"><PinIcon /></span>
+                    <span className="sb-dest-text"><b>{d.city}, {d.country}</b><span>{d.tagline}</span></span>
+                    <span className="sb-dest-count">{d.stays} stays</span>
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -133,55 +182,21 @@ export function SearchBar({
         <span className={`sb-seg-value${guests ? '' : ' is-empty'}`}>{guests ? `${guests} guest${guests > 1 ? 's' : ''}` : 'Add guests'}</span>
       </button>
 
-      <button type="submit" className="sb-search" aria-label="Search">
+      <button
+        type="submit"
+        className={`sb-search${canSearch ? '' : ' is-off'}`}
+        aria-label="Search"
+        disabled={!canSearch}
+        title={canSearch ? undefined : 'Add a destination, your dates and guests to search available stays'}
+      >
         <SearchIcon />
         <span>Search</span>
       </button>
 
-      {/* ── Dates calendar popover ── */}
+      {/* ── Dates calendar popover (shared RangeCalendar) ── */}
       {open === 'dates' && (
         <div className="sb-pop sb-pop-dates" role="dialog" aria-label="Choose dates">
-          <div className="cal-head">
-            <button type="button" className="cal-nav" aria-label="Previous month" onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} disabled={viewMonth <= new Date(today.getFullYear(), today.getMonth(), 1)}>
-              <Chevron dir="left" />
-            </button>
-            <div className="cal-title">
-              {nights > 0 ? `${nights} night${nights > 1 ? 's' : ''}` : 'Select your dates'}
-            </div>
-            <button type="button" className="cal-nav" aria-label="Next month" onClick={() => setViewMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}>
-              <Chevron dir="right" />
-            </button>
-          </div>
-          <div className="cal-months">
-            {[0, 1].map((offset) => {
-              const m = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + offset, 1);
-              return (
-                <div className="cal-month" key={offset}>
-                  <div className="cal-month-name">{MONTHS[m.getMonth()]} {m.getFullYear()}</div>
-                  <div className="cal-dow">{DOW.map((d) => <span key={d}>{d}</span>)}</div>
-                  <div className="cal-grid">
-                    {monthCells(m.getFullYear(), m.getMonth()).map((d, i) => {
-                      if (!d) return <span key={i} className="cal-cell cal-blank" />;
-                      const past = d < today;
-                      const isIn = sameDay(d, checkIn);
-                      const isOut = sameDay(d, checkOut);
-                      const inRange = checkIn && checkOut && d > checkIn && d < checkOut;
-                      const cls = ['cal-cell'];
-                      if (past) cls.push('cal-past');
-                      if (isIn) cls.push('cal-start');
-                      if (isOut) cls.push('cal-end');
-                      if (inRange) cls.push('cal-in');
-                      return (
-                        <button type="button" key={i} className={cls.join(' ')} disabled={past} onClick={() => pickDay(d)}>
-                          {d.getDate()}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <RangeCalendar checkIn={checkIn} checkOut={checkOut} onPick={pickDay} months={2} />
           <div className="cal-foot">
             <button type="button" className="cal-clear" onClick={() => { setCheckIn(null); setCheckOut(null); }}>Clear dates</button>
             <button type="button" className="btn btn-primary hf-sm" onClick={() => setOpen(null)}>Done</button>

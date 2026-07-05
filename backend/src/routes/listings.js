@@ -11,6 +11,7 @@ const {
   ok,
   err,
   listingOut,
+  publicListingOut,
   reviewOut,
   effectiveNightly,
   nightlyForGuestsRow,
@@ -57,6 +58,19 @@ const listingIn = (b) => ({
 });
 
 router.post('/listings', authUser, wrap(async (req, res) => {
+  // One host cannot list the same place twice (across app AND website — one
+  // backend, one rule): same city + same title, or same city + same address.
+  const norm = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const mine = await rows('listings', { host_id: req.auth.sub });
+  const dupe = (mine || []).find((m) =>
+    norm(m.city) === norm(req.body.city) && (
+      norm(m.title) === norm(req.body.title) ||
+      (norm(req.body.address) && norm(m.address) === norm(req.body.address))
+    ));
+  if (dupe) {
+    return err(res, 'DUPLICATE', 'You have already listed this place — edit your existing listing instead of creating it again.', 409);
+  }
+
   const status = req.body.publish ? 'published' : 'draft';
   const payload = { ...listingIn(req.body), host_id: req.auth.sub, host_name: req.auth.name, status };
   let l;
@@ -84,7 +98,21 @@ router.get('/listings/:id', wrap(async (req, res) => {
   const l = await one('listings', { id: req.params.id });
   if (!l) return err(res, 'NOTFOUND', 'listing not found', 404);
   const reviews = (await rows('reviews', { listing_id: l.id })).filter((r) => !r.removed).map(reviewOut);
-  ok(res, { ...listingOut(l), reviews });
+  // Public detail — exact address stays private until booked (publicListingOut).
+  ok(res, { ...publicListingOut(l), reviews });
+}));
+
+// Public availability — DATES ONLY (no guest identities, no addresses), so
+// calendars can grey out reserved days on every client.
+router.get('/listings/:id/availability', wrap(async (req, res) => {
+  const { data: bks } = await sb.from('bookings')
+    .select('check_in,check_out,status').eq('listing_id', req.params.id).neq('status', 'cancelled');
+  const { data: cal } = await sb.from('calendar')
+    .select('day').eq('listing_id', req.params.id).eq('blocked', true);
+  ok(res, {
+    booked: (bks || []).map((b) => ({ from: b.check_in, to: b.check_out })),
+    blocked: (cal || []).map((c) => c.day),
+  });
 }));
 
 router.get('/search', wrap(async (req, res) => {
@@ -109,7 +137,8 @@ router.get('/search', wrap(async (req, res) => {
   if (req.query.instant === 'true') q = q.eq('instant_book', true);
   const { data, error } = await q;
   if (error) throw error;
-  let items = (data || []).map(listingOut);
+  // Public search — exact address stays private until booked.
+  let items = (data || []).map(publicListingOut);
 
   if (req.query.amenities) {
     const want = String(req.query.amenities).split(',').map((a) => a.trim()).filter(Boolean);

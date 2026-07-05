@@ -9,6 +9,8 @@ import { DestinationRail } from '@/components/DestinationRail';
 import { StoryCard } from '@/components/StoryCard';
 import { Reveal } from '@/components/Reveal';
 import { RotatingBg } from '@/components/RotatingBg';
+import { RecentlyViewed } from '@/components/RecentlyViewed';
+import { PromoPopup } from '@/components/PromoPopup';
 import { WizIcon } from '@/components/WizIcon';
 import { TRAVEL_STORIES } from '@/lib/stories';
 
@@ -50,6 +52,9 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Welcome offer — once per session */}
+      <PromoPopup />
+
       {/* ── Search-forward top (Airbnb-style) ────────────── */}
       <section className="home-top">
         <RotatingBg images={HOME_TOP_BG} interval={6500} className="home-top-bg" />
@@ -61,9 +66,6 @@ export default async function HomePage() {
           <div className="home-search">
             <SearchBar />
           </div>
-          <Link href="/map" className="map-link home-map-link">
-            <WizIcon name="map" size={17} /> Or explore on the map — search any area with a custom radius
-          </Link>
         </div>
       </section>
 
@@ -74,12 +76,15 @@ export default async function HomePage() {
         </div>
       </div>
 
+      {/* ── Recently viewed (client, renders only when present) ── */}
+      <RecentlyViewed />
+
       {/* ── City carousels (live, grouped) ───────────────── */}
       {rows.length > 0 ? (
         <section className="section">
           <div className="container" style={{ display: 'grid', gap: 44 }}>
             {rows.map((row, i) => (
-              <Reveal key={row.city} delay={i * 60} className={i % 2 === 0 ? 'reveal-left' : 'reveal-right'}>
+              <Reveal key={row.city} delay={i * 60}>
                 <StayCarousel
                   title={`Stays in ${row.city}`}
                   stays={row.list.slice(0, 12)}
@@ -151,7 +156,7 @@ export default async function HomePage() {
           </Reveal>
           <div className="story-grid">
             {TRAVEL_STORIES.map((s, i) => (
-              <Reveal key={s.title} delay={i * 80} className={['reveal-left', 'reveal-scale', 'reveal-right'][i % 3]}>
+              <Reveal key={s.title} delay={i * 80}>
                 <StoryCard story={s} />
               </Reveal>
             ))}
@@ -170,7 +175,7 @@ export default async function HomePage() {
           </Reveal>
           <div className="feature-3up">
             {HOW.map((f, i) => (
-              <Reveal key={f.title} delay={i * 90} className={['reveal-left', 'reveal-scale', 'reveal-right'][i]}>
+              <Reveal key={f.title} delay={i * 90}>
                 <div className="feature-card">
                   <div className="feature-icon"><WizIcon name={f.icon} size={26} /></div>
                   <h3>{f.title}</h3>
