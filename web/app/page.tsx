@@ -3,6 +3,7 @@ import { searchStays } from '@/lib/api';
 import type { Listing } from '@/lib/types';
 import { SearchBar } from '@/components/SearchBar';
 import { StayCard } from '@/components/StayCard';
+<<<<<<< Updated upstream
 import { CategoryRail } from '@/components/CategoryRail';
 import { StayCarousel } from '@/components/StayCarousel';
 import { DestinationRail } from '@/components/DestinationRail';
@@ -43,15 +44,22 @@ function cityRows(stays: Listing[], max = 3) {
     .slice(0, max)
     .map(([city, list]) => ({ city, list }));
 }
+=======
+import { Reveal } from '@/components/Reveal';
+import { TiltCard } from '@/components/TiltCard';
+import { Price } from '@/components/Price';
+>>>>>>> Stashed changes
 
 export default async function HomePage() {
   const { results } = await searchStays();
   const rows = cityRows(results);
   const favourites = results.filter((s) => s.ratingCount > 0 && (s.ratingAvg ?? 0) >= 4.8).slice(0, 12);
   const featured = results.slice(0, 8);
+  const heroPhotos = featured.filter((s) => s.images?.[0]).slice(0, 3);
 
   return (
     <>
+<<<<<<< Updated upstream
       {/* Welcome offer — once per session */}
       <PromoPopup />
 
@@ -66,6 +74,57 @@ export default async function HomePage() {
           <div className="home-search">
             <SearchBar />
           </div>
+=======
+      <section className="hero">
+        <div className="hero-blob hero-blob-a" />
+        <div className="hero-blob hero-blob-b" />
+        <div className="container">
+          <Reveal>
+            <h1>
+              Extraordinary stays, <span className="accent">zero platform fees.</span>
+            </h1>
+            <p className="lede">
+              Book direct on StayOn — guests pay less and hosts keep 100%. No commission, ever.
+            </p>
+            <SearchBar />
+            <Link href="/map" className="map-link hero-map-link">
+              🗺 Explore on the map — search any area with a custom radius
+            </Link>
+            <div className="hero-trust">
+              <span className="hero-trust-item">0% platform fee</span>
+              <span className="hero-trust-item">Verified guests &amp; hosts</span>
+              <span className="hero-trust-item">Direct payouts, no middleman</span>
+            </div>
+          </Reveal>
+          {heroPhotos.length >= 2 && (
+            <Reveal delay={150}>
+              <div className="hero-visual">
+                {heroPhotos.map((stay) => (
+                  <TiltCard className="hero-photo-card" maxTilt={4} key={stay.id}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={stay.images[0]} alt={stay.title} />
+                    <div className="hpc-meta">
+                      <div>
+                        <div className="hpc-place">{stay.city}</div>
+                        <div className="hpc-sub"><Price usd={stay.priceUSD} suffix="night" /></div>
+                      </div>
+                      {stay.ratingCount > 0 && (
+                        <span className="hpc-rating">★ {stay.ratingAvg?.toFixed(2)}</span>
+                      )}
+                    </div>
+                  </TiltCard>
+                ))}
+                <div className="hero-float-badge float-el">
+                  <span className="hfb-icon">%</span>
+                  <div>
+                    <b>0% commission</b>
+                    <span>Guests pay less, always</span>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
+          )}
+>>>>>>> Stashed changes
         </div>
       </section>
 
@@ -135,6 +194,7 @@ export default async function HomePage() {
         <div className="container">
           <Reveal>
             <div className="section-head">
+<<<<<<< Updated upstream
               <h2>Popular destinations</h2>
               <span className="muted">Trending places to explore right now</span>
             </div>
@@ -171,6 +231,17 @@ export default async function HomePage() {
             <div className="section-head center">
               <h2>How StayOn works</h2>
               <p>Everything the big platforms do — clean, quick and honest, from search to check-in.</p>
+=======
+              <h2>Featured stays</h2>
+              <span className="muted">{results.length} places live now</span>
+            </div>
+          </Reveal>
+          {featured.length > 0 ? (
+            <div className="grid">
+              {featured.map((stay) => (
+                <StayCard key={stay.id} stay={stay} />
+              ))}
+>>>>>>> Stashed changes
             </div>
           </Reveal>
           <div className="feature-3up">

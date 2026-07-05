@@ -248,6 +248,7 @@ const reviewOut = (r) => ({
   id: r.id,
   listingId: r.listing_id,
   authorName: r.author_name,
+  direction: r.direction,
   rating: r.rating,
   text: r.text,
   response: r.response,

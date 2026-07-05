@@ -2,9 +2,16 @@
 
 import { useRef } from 'react';
 
+<<<<<<< Updated upstream
 // Perspective/rotate tilt on hover, driven by direct DOM style writes (not React
 // state) so it doesn't re-render per mousemove. Inert on touch; globals.css
 // forces the transform off under prefers-reduced-motion / (hover: none).
+=======
+// Perspective/rotate tilt on hover, driven by direct DOM style writes (not
+// React state) so it doesn't re-render per mousemove. Inert on touch — no
+// mousemove events fire there — and globals.css forces the transform off
+// under `prefers-reduced-motion` / `(hover: none)`.
+>>>>>>> Stashed changes
 export function TiltCard({
   children,
   className = '',
