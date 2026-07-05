@@ -246,5 +246,6 @@ Grounded in the Airbnb 2025 references + the apps. Status: ✅ done · ⬜ pendi
 | Commit | Summary |
 |---|---|
 | `8eba3bd` | Premium Airbnb-caliber rebuild of the public website (guest + host) — all of the above. |
+| `a915daa` | Brand-exact pass: buttons = apps' STAYON_GRADIENT (#0D9488→#6366F1); surfaces = teal family; working i18n (en/hi/fr/es); left/right side reveals; host owner facts strip; route-aware header. |
 
 _When you make further changes, add a row here and update §11 statuses._
