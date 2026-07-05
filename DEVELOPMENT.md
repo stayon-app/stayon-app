@@ -207,3 +207,210 @@ Check: `curl guest pages | grep -iE 'commission|keep 100%|payout'` → must be e
 
 ---
 *Last updated: 2026-07-06 · after commit `a519130` (revert of accidental `db5aa45`).*
+
+
+---
+---
+
+# PART II — Deep technical reference (connections, workflows, storage)
+
+## 13. System architecture — who talks to whom
+
+```
+   USER APP (Expo)      HOST APP (Expo)      WEBSITE guest+host (Next.js :3000)
+        |  phone-OTP login     |  phone-OTP login        |  Clerk login (Google/email)
+        |                      |                         |
+        |   Bearer StayOn JWT  |   Bearer StayOn JWT     |  Clerk token --POST /auth/clerk-->
+        +----------+-----------+-----------+-------------+        (exchanged for StayOn JWT)
+                   v                       v
+        +------------------------------------------------+
+        |        BACKEND API  http://localhost:4000/v1   |   Express (backend/src)
+        |  auth.js | listings.js | bookings.js |         |
+        |  social.js (media/messages) | misc.js | ops.js |
+        +---------------+---------------+----------------+
+                        v               v
+              SUPABASE POSTGRES   SUPABASE STORAGE
+              (all tables, s15)   bucket BUCKET_LISTINGS (listing photos)
+                                  bucket BUCKET_REELS (reels)
+
+  External services used by clients:
+  - Google Maps JS API (website maps; key in web/lib/googleMaps.ts, apps in app.json)
+  - Nominatim/OpenStreetMap (free geocoding: wizard address->lat/lng, /map place search)
+  - Clerk (website identity provider) - Expo Push (backend -> app notifications)
+  - Unsplash (illustrative imagery only)
+```
+
+**Every client calls the SAME API with the SAME token format** — a StayOn JWT in
+`Authorization: Bearer <token>` — so any rule added to a route instantly protects
+app + website simultaneously. There is no client-to-client communication; clients
+only ever talk to the backend.
+
+## 14. Authentication & communication flows
+
+### A) App login (phone OTP)
+1. `POST /v1/auth/send-otp {phone}` → user row **upserted by phone** (`users`),
+   6-digit code stored in `otp_codes`
+2. `POST /v1/auth/verify-otp {phone, code}` → returns **StayOn access JWT** (signed
+   with `JWT_SECRET`, payload `{sub: userId, name}`) + refresh token (row in
+   `refresh_tokens`; revocable per device)
+3. Every later request: `Authorization: Bearer <access JWT>` → middleware
+   `authUser` verifies and sets `req.auth.sub/name`
+
+### B) Website login (Clerk bridge)
+1. User signs in with Clerk on `/sign-in` (Google or email code)
+2. `web/components/StayonBridge.tsx` watches Clerk state; on sign-in it calls
+   `ensureStayonSession()` → `POST /v1/auth/clerk {clerkToken}`
+3. Backend verifies the Clerk token, then maps to a StayOn user:
+   match `users.clerk_id` → else **link by email** → else **link by phone** →
+   else create. Returns the same StayOn JWT as (A)
+4. Token cached client-side; all API calls use the same Bearer header.
+   Sign-out clears it (`clearStayonSession`)
+
+### C) Request wrapper (website)
+`web/lib/stayonClient.ts` — `API` base, `authed(method, path, body)` attaches the
+Bearer token; `host.*` (listings/reservations/upload) and `stayon.*` (book/trips)
+are the only doors the website uses to reach the backend.
+
+## 15. Database — every table and what it stores
+
+| Table | Purpose / key columns |
+|---|---|
+| `users` | one row per human: `id`, `phone` (unique), `email`, `clerk_id`, `name`, `avatar_url`, `country_code`, `push_token`, `status` |
+| `identities` | identity-verification artifacts (KYC), salted via `IDENTITY_SALT` |
+| `otp_codes` | active OTP codes per phone/user (login step) |
+| `refresh_tokens` | long-lived sessions per device; `revoked` flag = logout |
+| `listings` | one row per property: `host_id -> users`, title/type/`place_type`, address/city/state/zipcode/lat/lng, guests/bedrooms/beds/bathrooms, `price_usd`/`weekend_price_usd`/`cleaning_fee_usd`, `images[]` (public URLs), `amenities[]`, `highlights[]`, `vibes[]`, `instant_book`, `status` (`draft -> pending_review -> published`), `rating_avg/count`, `extra` JSON (houseRules, safety, checkIn/Out, minNights, baseGuests, extraGuestPct, languages) |
+| `bookings` | guest's record: `code` (STY-XXXXXX), `listing_id`, `guest_id`, `host_id`, `check_in/out`, `nights`, `guests`, `subtotal_usd` (after promo), `cleaning_usd`, `taxes_usd`, `total_usd`, `status` (pending/confirmed/completed/cancelled), `payment_intent_id`, `payment_status`, `refund_usd` |
+| `reservations` | host's mirror of the same booking (same `code`): host-side status pipeline; the two stay in sync via `syncStatus(code, ...)` |
+| `calendar` | per-listing day rows: `day`, `blocked`, optional `price_usd` override — host date-blocking |
+| `reviews` | guest reviews per listing (+ host `response`, ops `removed` flag) → drives `rating_avg/count` |
+| `wishlists` | app-side saved stays (website wishlist is currently localStorage — see s9) |
+| `threads` / `messages` | guest-host messaging (app screens; minimal backend) |
+| `notifications` | in-app notification feed (`user_id`, `type`, `payload`); Expo push fired best-effort alongside |
+| `audit_log` | staff/ops action trail (`actor_id`, action, target) |
+| `staff` | ops console users/roles (leave alone) |
+| `feature_flags` | ops-togglable flags (e.g. markets) |
+
+**Files/photos:** NOT in tables. `POST /v1/media/upload {b64}` → Supabase **Storage**
+bucket `BUCKET_LISTINGS` at path `hostId/uuid.ext` → public URL is returned and that
+URL string is what's saved inside `listings.images[]`.
+
+## 16. API endpoint reference (backend/src/routes)
+
+**auth.js** — `POST /auth/send-otp` · `POST /auth/verify-otp` · `POST /auth/clerk` ·
+`POST /auth/refresh` · `POST /auth/logout`
+
+**listings.js**
+- `GET /search` — public; filters: `q|city` (ilike over city/state/country/address/title/zip), `guests` (>=), `minPrice/maxPrice`, `type`, `instant`, `amenities`, `pets`, `languages`, `checkIn+checkOut` (drops overlapped/blocked), `lat+lng+radius` (geo). Output: `publicListingOut` (address/zip stripped, coords rounded) |
+- `GET /listings/:id` — public detail (same privacy) + reviews
+- `GET /listings/:id/availability` — public, dates only `{booked[], blocked[]}`
+- `GET /listings/:id/quote?checkIn&checkOut&guests&promo` — price breakdown + promo validity
+- `GET /listings/:id/calendar` · `PUT /listings/:id/calendar` (host-only)
+- `POST /listings` (host; duplicate guard) · `POST /listings/:id/submit` (→ pending_review) · `PUT /listings/:id` (owner-only) · `GET /listings` (host's own, full data)
+
+**bookings.js**
+- `POST /bookings` — auth; rules in order: dates sane → capacity → overlap 409 → blocked 409 → promo validate/first-only → insert booking+reservation → **race re-check** → payment intent → notify host
+- `GET /bookings` — guest's own + `stayAddress` reveal on active ones
+- `POST /bookings/:id/cancel` (guest) · `POST /bookings/by-code/:code/cancel` (guest or host)
+- `GET /reservations` (host's own) · `POST /reservations/:id/:action` + by-code — host-only; actions accept/decline/checkin/checkout
+
+**social.js** — `POST /media/upload` (auth → Storage URL), reviews write, messaging
+**misc.js** — profile (`GET/PUT /me`), push token, payout account stub, account delete
+**ops.js** — staff console (approval queue, refunds, flags) — **do not modify**
+
+## 17. End-to-end workflows (step by step)
+
+### W1 — Guest books a stay (website)
+1. Home/search: type city → type-ahead from live inventory → pick → calendar auto-opens → dates → guests → **Search enabled only now**
+2. `/search?q&checkIn&checkOut&guests` → server calls `GET /search` (availability-first); FilterSheet narrows client-side; map pins mirror the filtered list
+3. Stay page: `GET /listings/:id` + `/availability` (reserved days struck out) + `/quote` (breakdown; promo re-quotes live)
+4. Reserve → Clerk sign-in if needed → StayonBridge mints session → `POST /bookings`
+5. Backend runs all s4 rules → writes `bookings` + `reservations` (same `code`) → payment intent (sim) → `notifications` to host (+push)
+6. Guest's Trips (`GET /bookings`) now shows it **with `stayAddress`** — the first time the exact address exists client-side
+7. Those dates disappear from everyone's search (overlap filter)
+
+### W2 — Host publishes a listing (website)
+1. `/host` → sign in → dashboard → New listing → 3-phase wizard (s6)
+2. Photos: each → `POST /media/upload` → Storage → URL array
+3. Address → Nominatim geocode → lat/lng
+4. `POST /listings` (duplicate guard) → `POST /listings/:id/submit` → `status = pending_review`
+5. **Ops approves** → `published` → guest search/type-ahead pick it up instantly
+6. Save & exit at any step keeps a restorable local draft
+
+### W3 — Reservation lifecycle (host)
+`pending` → host `accept` → `confirmed` → `checkin` → `checkout` → `completed`
+(or `decline`/cancel → `cancelled`). Each action: host-only auth → `syncStatus`
+updates BOTH `reservations` and `bookings` by `code` → guest notified.
+Instant-Book listings skip `pending` (created `confirmed`).
+
+### W4 — Cancellation & refund
+Guest cancels (`/bookings/:id/cancel`) → status `cancelled` on both sides →
+`refund_usd = total - taxes` recorded → host notified → dates instantly bookable
+again (search + availability recompute live).
+
+### W5 — Promo
+Quote shows discount for any client; booking re-validates: unknown code → 400;
+`firstOnly` checked against the guest's booking history; discount applied to
+subtotal before tax; response returns `{promo: {code, pct, discountUSD}}`.
+
+## 18. Where each piece of client state lives
+
+| State | Storage |
+|---|---|
+| StayOn session (website) | localStorage via `stayonClient` |
+| Currency + language choice | localStorage `stayon_currency` / `stayon_language` (auto-detected on first visit) |
+| Wishlist hearts (website) | localStorage `stayon_wishlist` (sync to `wishlists` table = roadmap) |
+| Recently viewed | localStorage `stayon_recently_viewed` (max 12) |
+| Wizard draft | localStorage `stayon_listing_draft` (photos excluded — browser limit) |
+| Promo popup seen | sessionStorage `stayon_promo_seen` |
+| Apps' equivalents | AsyncStorage (favorites, recentlyViewed, drafts) — same shapes |
+
+## 19. File map — where to find everything
+
+### Backend (`backend/`)
+| File | What lives there |
+|---|---|
+| `src/index.js` | Express boot, route mounting, CORS |
+| `src/auth.js` | JWT sign/verify, `authUser`/`authStaff`, refresh tokens |
+| `src/routes/auth.js` | OTP + Clerk exchange (identity linking) |
+| `src/routes/listings.js` | search, detail, availability, quote, create/submit/update, calendar |
+| `src/routes/bookings.js` | booking rules, reservations actions, cancels, address reveal |
+| `src/routes/social.js` | media upload → Storage, reviews, messaging |
+| `src/routes/misc.js` | profile, push tokens, account deletion |
+| `src/routes/ops.js` | staff console — DO NOT TOUCH |
+| `src/utils/helpers.js` | DB helpers, output mappers (`listingOut`/`publicListingOut`/`bookingOut`), `PROMOS`, notify/push, TAX_RATE |
+| `src/payments.js` | payment provider abstraction (sim / stripe / razorpay scaffold) |
+| `src/supabase.js` | Supabase client init |
+| `db/live-hardening.sql` | run-once production constraints + indexes |
+
+### Website (`web/`)
+| Area | Files |
+|---|---|
+| Routes | `app/page.tsx` (home) · `app/search/` · `app/stay/[id]/` · `app/explore/` · `app/saved/` · `app/trips/` · `app/map/` · `app/host/` · `app/sign-in/` · `app/sign-up/` · `app/layout.tsx` |
+| Search & booking | `components/SearchBar.tsx` (trio gate + type-ahead) · `RangeCalendar.tsx` (shared calendar) · `SearchResults.tsx` (+FilterSheet wiring) · `FilterSheet.tsx` · `SearchMap.tsx` · `BookingWidget.tsx` (quote/promo/reserve) |
+| Stay page | `StayGallery.tsx` · `StayAmenities.tsx` · `StayReviews.tsx` · `StayLocationMap.tsx` |
+| Host | `CreateListingForm.tsx` (3-phase wizard) · `HostEarnings.tsx` · `Accordion.tsx` · `TiltCard.tsx` |
+| Chrome | `Header.tsx` (route-aware) · `Footer.tsx` + `NewsletterSignup.tsx` · `AuthShell.tsx` + `AuthCaptions.tsx` · `PromoPopup.tsx` |
+| Shared UI | `StayCard.tsx` (carousel+heart) · `StayCarousel.tsx` · `CategoryRail.tsx`/`CategoryIcon.tsx` · `DestinationRail.tsx` · `StoryCard.tsx` · `Reveal.tsx` · `RotatingBg.tsx` · `WizIcon.tsx` (line-icon set) · `RecentlyViewed.tsx` · `GlobeMenu.tsx` · `Price.tsx` |
+| State/libs | `lib/stayonClient.ts` (API bridge) · `lib/api.ts` (server fetch) · `lib/currency.ts` (20 currencies + detect) · `lib/i18n.ts` (en/hi/fr/es) · `lib/wishlist.ts` · `lib/recentlyViewed.ts` · `lib/wizard.ts` (listing options) · `lib/googleMaps.ts` · `lib/categories|destinations|stories.ts` |
+| Styling | `app/globals.css` (the entire design system — tokens at top) |
+| Providers | `components/PrefsProvider.tsx` (currency/language/t) · `StayonBridge.tsx` (Clerk→StayOn session) |
+
+### User app (`user/`)
+| Area | Files |
+|---|---|
+| Navigation | `src/navigation/MainNavigator.tsx` (tabs: Home/Explore/Reels/Trips/Profile + stacks) |
+| Key screens | `src/screens/HomeScreen` · `ExploreScreen` · `PropertyDetailsScreen` · `BookingScreen` · `TripsScreen` · `MapExploreScreen`/`MapSearchScreen` · `AuthScreen`+`OTPScreen` · `ProfileScreen` (+ Experiences/Reels/StayCoins etc.) |
+| Design source | `src/constants/colors.ts` (the teal palette) · `src/components/GradientButton.tsx` (**STAYON_GRADIENT** `#0D9488→#6366F1`) · `PropertyCard.tsx` (card pattern the website mirrors) · `PremiumFilterSheet.tsx` (filter model) |
+| Data | `src/data/*` (favorites, recentlyViewed, reviews, wishlists — AsyncStorage) · `src/api/` (backend calls) |
+
+### Host app (`host/`)
+| Area | Files |
+|---|---|
+| Key screens | `src/screens/ListingWizardScreen.tsx` (**the 3-phase wizard the website mirrors**) · `TodayScreen` · `ListingDetailsScreen` · `ReviewsScreen` · `HostLoginScreen` |
+| Data | `src/data/listings.ts` (PLACE_TYPES/AMENITY_OPTIONS/etc. — mirrored into `web/lib/wizard.ts`) · `earnings.ts` |
+| Design | `src/constants/colors.ts` + `components/GradientButton.tsx` (same palette/gradient as user app) |
+
+> Golden thread: change shared options (amenities, place types, promos) in ONE
+> place per side — backend `helpers.js` for rules/promos; `host/src/data/listings.ts`
+> + `web/lib/wizard.ts` must be kept identical for wizard parity.
