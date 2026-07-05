@@ -98,7 +98,6 @@ router.get('/listings', authUser, wrap(async (req, res) =>
 router.get('/listings/:id', wrap(async (req, res) => {
   const l = await one('listings', { id: req.params.id });
   if (!l) return err(res, 'NOTFOUND', 'listing not found', 404);
-<<<<<<< Updated upstream
   const reviews = (await rows('reviews', { listing_id: l.id })).filter((r) => !r.removed).map(reviewOut);
   // Public detail — exact address stays private until booked (publicListingOut).
   ok(res, { ...publicListingOut(l), reviews });
@@ -115,12 +114,6 @@ router.get('/listings/:id/availability', wrap(async (req, res) => {
     booked: (bks || []).map((b) => ({ from: b.check_in, to: b.check_out })),
     blocked: (cal || []).map((c) => c.day),
   });
-=======
-  const reviews = (await rows('reviews', { listing_id: l.id }))
-    .filter((r) => !r.removed && r.direction === 'guest_to_host')
-    .map(reviewOut);
-  ok(res, { ...listingOut(l), reviews });
->>>>>>> Stashed changes
 }));
 
 router.get('/search', wrap(async (req, res) => {

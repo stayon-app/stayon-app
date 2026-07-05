@@ -5,7 +5,6 @@
 // out → finish up & publish). Monochrome solid-line icons; no colour glyphs.
 import { useEffect, useRef, useState } from 'react';
 import { host } from '@/lib/stayonClient';
-<<<<<<< Updated upstream
 import { usePrefs } from './PrefsProvider';
 import { Price } from './Price';
 import { WizIcon } from './WizIcon';
@@ -13,9 +12,6 @@ import {
   PLACE_TYPES, PLACE_KINDS, WHO_ELSE_OPTIONS, HIGHLIGHTS, DISCOUNT_OPTIONS,
   AMENITY_OPTIONS, AMENITY_CATEGORY_ORDER, SAFETY_OPTIONS, MIN_PHOTOS,
 } from '@/lib/wizard';
-=======
-import { AMENITY_LABELS, AMENITY_FORM_IDS, HIGHLIGHT_OPTIONS, HIGHLIGHTS_MAX, VIBE_OPTIONS } from '@/lib/amenities';
->>>>>>> Stashed changes
 
 const PHASE1 = ['p1intro', 'type', 'kind', 'location', 'basics', 'bathrooms', 'whoelse'];
 const PHASE2 = ['p2intro', 'amenities', 'photos', 'title', 'highlights', 'description'];
@@ -74,7 +70,6 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
   const set = (p: Partial<Draft>) => setD((prev) => ({ ...prev, ...p }));
   const id = STEPS[i];
 
-<<<<<<< Updated upstream
   // Restore a saved draft (Save & exit) once on open.
   const restoredRef = useRef(false);
   useEffect(() => {
@@ -108,25 +103,6 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
     if (id === 'price') return d.priceUSD > 0;
     return true;
   })();
-=======
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [amenities, setAmenities] = useState<string[]>([]);
-  const [highlights, setHighlights] = useState<string[]>([]);
-  const [vibes, setVibes] = useState<string[]>([]);
-
-  const set = (k: string, v: string | boolean) => setF((p) => ({ ...p, [k]: v }));
->>>>>>> Stashed changes
-
-  const toggleAmenity = (id: string) =>
-    setAmenities((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
-  const toggleHighlight = (id: string) =>
-    setHighlights((p) => {
-      if (p.includes(id)) return p.filter((x) => x !== id);
-      if (p.length >= HIGHLIGHTS_MAX) return p;
-      return [...p, id];
-    });
-  const toggleVibe = (id: string) =>
-    setVibes((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   const addPhotos = (files: FileList | null) => {
     if (!files) return;
@@ -171,7 +147,6 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
 
       setStatus('Submitting for review…');
       await host.createListing({
-<<<<<<< Updated upstream
         title: d.title.trim(), type: d.type, placeType: d.placeType,
         description: d.description.trim(),
         address: d.landmark.trim() ? `${d.address.trim()} (near ${d.landmark.trim()})` : d.address.trim(),
@@ -185,24 +160,6 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
         images, amenities: d.amenities, highlights: d.highlights,
         instantBook: d.bookingApproval === 'instant',
         safety: d.safety,
-=======
-        title: f.title.trim(),
-        type: f.type,
-        city: f.city.trim(),
-        country: f.country.trim(),
-        description: f.description.trim(),
-        guests: Number(f.guests),
-        bedrooms: Number(f.bedrooms),
-        beds: Number(f.beds),
-        bathrooms: Number(f.bathrooms),
-        priceUSD: Number(f.priceUSD),
-        cleaningFeeUSD: Number(f.cleaningFeeUSD) || 0,
-        images,
-        instantBook: f.instantBook,
-        amenities,
-        highlights,
-        vibes,
->>>>>>> Stashed changes
       });
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       onCreated();
@@ -555,101 +512,12 @@ export function CreateListingForm({ onCreated, onCancel }: { onCreated: () => vo
         </div>
       )}
 
-<<<<<<< Updated upstream
       {/* Footer nav */}
       <div className="wiz-footer">
         <button type="button" className="wiz-back" onClick={back} disabled={busy}>Back</button>
         <button type="button" className="btn btn-primary wiz-next" onClick={next} disabled={!canNext || busy}>
           {busy ? 'Submitting…' : i === 0 ? 'Get started' : id === 'final' ? 'Create listing' : 'Next'}
         </button>
-=======
-      <button type="button" className="hf-more-toggle" onClick={() => setMoreOpen((v) => !v)}>
-        {moreOpen ? '− Hide more details' : '+ More details (amenities, highlights, vibe)'}
-      </button>
-
-      {moreOpen && (
-        <div className="hf-more">
-          <div className="hf-field">
-            <span>Amenities</span>
-            <div className="hf-amenity-grid">
-              {AMENITY_FORM_IDS.map((id) => (
-                <label key={id}>
-                  <input type="checkbox" checked={amenities.includes(id)} onChange={() => toggleAmenity(id)} />
-                  {AMENITY_LABELS[id]}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div className="hf-field">
-            <span>Highlights (up to {HIGHLIGHTS_MAX})</span>
-            <div className="chip-picker">
-              {HIGHLIGHT_OPTIONS.map((o) => {
-                const active = highlights.includes(o.id);
-                return (
-                  <button
-                    key={o.id}
-                    type="button"
-                    className={`chip-btn ${active ? 'active' : ''}`}
-                    disabled={!active && highlights.length >= HIGHLIGHTS_MAX}
-                    onClick={() => toggleHighlight(o.id)}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="hf-field">
-            <span>Vibe</span>
-            <div className="chip-picker-group">
-              <span className="chip-picker-label">Setting</span>
-              <div className="chip-picker">
-                {VIBE_OPTIONS.filter((o) => o.group === 'setting').map((o) => (
-                  <button
-                    key={o.id}
-                    type="button"
-                    className={`chip-btn ${vibes.includes(o.id) ? 'active' : ''}`}
-                    onClick={() => toggleVibe(o.id)}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="chip-picker-group">
-              <span className="chip-picker-label">Match your vibe</span>
-              <div className="chip-picker">
-                {VIBE_OPTIONS.filter((o) => o.group === 'vibe').map((o) => (
-                  <button
-                    key={o.id}
-                    type="button"
-                    className={`chip-btn ${vibes.includes(o.id) ? 'active' : ''}`}
-                    onClick={() => toggleVibe(o.id)}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <label className="hf-check">
-        <input type="checkbox" checked={f.instantBook} onChange={(e) => set('instantBook', e.target.checked)} />
-        <span>Instant book (guests book without approval)</span>
-      </label>
-
-      <p className="hf-note">Prices are in USD; guests see them in their own currency. Your listing is <b>submitted for review</b> and goes live once our team approves it — 0% commission.</p>
-      {status && <p className="muted">{status}</p>}
-      {error && <p className="modal-error">{error}</p>}
-
-      <div className="hf-actions">
-        <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy}>Cancel</button>
-        <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Submitting…' : 'Submit for review'}</button>
->>>>>>> Stashed changes
       </div>
     </div>
   );

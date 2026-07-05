@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 'use client';
 
 import Link from 'next/link';
@@ -6,9 +5,6 @@ import { usePathname } from 'next/navigation';
 import { NewsletterSignup } from './NewsletterSignup';
 import { WizIcon } from './WizIcon';
 import { usePrefs } from './PrefsProvider';
-=======
-import Link from 'next/link';
->>>>>>> Stashed changes
 
 export function Footer() {
   const { t } = usePrefs();
@@ -31,7 +27,6 @@ export function Footer() {
       <div className="container">
         <div className="footer-grid">
           <div className="footer-col footer-brand">
-<<<<<<< Updated upstream
             <span className="brand-name">Stay<span className="brand-on">On</span></span>
             <p>Premium, hand-picked stays — booked direct with no booking fees. The price you see is the price you pay.</p>
             <div className="footer-badges">
@@ -65,33 +60,6 @@ export function Footer() {
             <a href="#" aria-label="X">𝕏</a>
             <a href="#" aria-label="Instagram">◎</a>
           </div>
-=======
-            <span className="brand-name">Stay On</span>
-            <p>Book direct, zero platform fees. Guests pay less, hosts keep 100%.</p>
-          </div>
-          <div className="footer-col">
-            <h4>Explore</h4>
-            <Link href="/search">Search stays</Link>
-            <Link href="/map">Map search</Link>
-            <Link href="/host">Become a host</Link>
-          </div>
-          <div className="footer-col">
-            <h4>Hosting</h4>
-            <Link href="/host">Host dashboard</Link>
-            <span>0% commission, always</span>
-            <span>Verified guests</span>
-          </div>
-          <div className="footer-col">
-            <h4>Trust</h4>
-            <span>Identity-verified accounts</span>
-            <span>Secure on-platform payments</span>
-            <span>24/7 support</span>
-          </div>
-        </div>
-        <div className="footer-legal">
-          <span>© {new Date().getFullYear()} StayOn · 0% commission, always.</span>
-          <span>Guests pay less · Hosts keep 100%</span>
->>>>>>> Stashed changes
         </div>
       </div>
     </footer>

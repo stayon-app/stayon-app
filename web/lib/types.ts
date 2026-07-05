@@ -42,19 +42,6 @@ export interface Listing {
   baseGuests?: number;
   extraGuestPct?: number;
   hostLanguages?: string[];
-  reviews?: Review[];
-}
-
-// Mirrors backend `reviewOut()` (backend/src/utils/helpers.js). Only attached
-// on GET /listings/:id, never on /search results.
-export interface Review {
-  id: string;
-  listingId: string;
-  authorName: string;
-  rating: number;
-  text: string;
-  response?: string;
-  createdAt: string;
 }
 
 export interface SearchResponse {

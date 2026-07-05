@@ -6,8 +6,6 @@ import './globals.css';
 // (their `fontFamily: 'System'`) — no webfont — so type reads identically
 // across the user app, host app and website. Stack lives in globals.css.
 import { PrefsProvider } from '@/components/PrefsProvider';
-import { AuthModalProvider } from '@/components/AuthModalProvider';
-import { AuthModal } from '@/components/AuthModal';
 import { StayonBridge } from '@/components/StayonBridge';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -34,13 +32,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <html lang="en">
         <body>
           <PrefsProvider>
-            <AuthModalProvider>
-              <StayonBridge />
-              <AuthModal />
-              <Header />
-              <main>{children}</main>
-              <Footer />
-            </AuthModalProvider>
+            <StayonBridge />
+            <Header />
+            <main>{children}</main>
+            <Footer />
           </PrefsProvider>
         </body>
       </html>

@@ -46,10 +46,6 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  // Only ever populated when the backend is running with OTP_TRANSPORT=console
-  // (no real SMS provider wired) — lets us test on a physical phone without
-  // needing access to the backend's terminal output.
-  const [devCode, setDevCode] = useState<string | null>(null);
   const inputRefs = useRef<Array<TextInput | null>>([]);
 
   // Animations
@@ -88,10 +84,7 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
     const nationalNumber = rawPhone ? String(rawPhone).replace(/[^0-9]/g, '') : '';
     if (nationalNumber && dialCode && countryCode) {
       sendOtp(nationalNumber, dialCode, countryCode)
-        .then((res) => {
-          setResendCooldown(60);
-          setDevCode(res?.devCode ?? null);
-        })
+        .then(() => setResendCooldown(60))
         .catch((err: any) => {
           if (err?.code === 'RATE_LIMITED' || err?.code === 'HTTP_429') {
             Alert.alert('Too many requests', 'Please wait before requesting another code.');
@@ -207,14 +200,12 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
     setError(false);
     setErrorMessage('');
     setCode(['', '', '', '', '', '']);
-    setDevCode(null);
     inputRefs.current[0]?.focus();
 
     try {
       const nationalNumber = rawPhone ? String(rawPhone).replace(/[^0-9]/g, '') : '';
       if (nationalNumber && dialCode && countryCode) {
-        const res = await sendOtp(nationalNumber, dialCode, countryCode);
-        setDevCode(res?.devCode ?? null);
+        await sendOtp(nationalNumber, dialCode, countryCode);
       }
       setResendCooldown(60); // 60-second cooldown
     } catch (err: any) {
@@ -279,15 +270,6 @@ export const OTPScreen: React.FC<OTPScreenProps> = ({
               Enter the 6-digit code sent to{'\n'}
               <Text style={styles.codeHighlight}>{phoneOrEmail}</Text>
             </Text>
-
-            {/* Dev-only: shown when the backend has no real SMS provider wired
-                (OTP_TRANSPORT=console) so the code can be read on-device. */}
-            {devCode && (
-              <View style={styles.devCodeBanner}>
-                <Ionicons name="construct-outline" size={14} color="#92400E" />
-                <Text style={styles.devCodeText}>Dev code: {devCode}</Text>
-              </View>
-            )}
 
             {/* OTP Input */}
             <View style={styles.codeContainer}>
@@ -434,24 +416,6 @@ function makeStyles(height: number) {
     color: '#0D9488',
     fontSize: 18,
     letterSpacing: 3,
-  },
-  devCodeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FEF3C7',
-    borderWidth: 1,
-    borderColor: '#FCD34D',
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  devCodeText: {
-    fontSize: 13,
-    ...fonts.bold,
-    color: '#92400E',
-    letterSpacing: 1,
   },
   codeContainer: {
     flexDirection: 'row',
