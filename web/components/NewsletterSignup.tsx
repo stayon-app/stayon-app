@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { usePrefs } from './PrefsProvider';
 
 // Lightweight, self-contained newsletter capture (no backend endpoint yet —
 // confirms locally so the footer feels alive and engaging).
 export function NewsletterSignup() {
+  const { t } = usePrefs();
   const [email, setEmail] = useState('');
   const [done, setDone] = useState(false);
 
@@ -28,7 +30,7 @@ export function NewsletterSignup() {
         aria-label="Email address"
         required
       />
-      <button type="submit" className="btn btn-primary">Subscribe</button>
+      <button type="submit" className="btn btn-primary">{t('Subscribe')}</button>
     </form>
   );
 }

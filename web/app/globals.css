@@ -1,17 +1,24 @@
 :root {
-  /* Brand — cool indigo + green, used with restraint (not glowy/neon) */
-  --teal: #0d9488;
-  --teal-dark: #0f766e;
+  /* Brand — the apps' single StayOn colour: tropical teal (#0D9488 family).
+     Matches user/src/constants/colors.ts + host/src/constants/colors.ts exactly.
+     ONE hue, used with restraint — cool and simple, never glowy. */
+  --teal: #0d9488;         /* primary */
+  --teal-dark: #0f766e;    /* primaryDark */
+  --teal-light: #14b8a6;   /* primaryLight */
+  --teal-ultra: #ccfbf1;   /* primaryUltraLight */
+  --teal-wash: #f0fdfa;    /* primarySubtle */
+  /* STAYON_GRADIENT end colour — the apps' GradientButton is #0D9488 → #6366F1
+     (user+host GradientButton.tsx). Used for buttons/actions only. */
   --indigo: #6366f1;
   --indigo-dark: #4f46e5;
-  --ink: #12122e;
+  --ink: #0f172a;          /* app textPrimary */
   --slate: #475569;
   --slate-light: #64748b;
   --line: #e6e8ee;
   --line-soft: #eef1f6;
   --bg: #ffffff;
-  --bg-soft: #f7f8fb;
-  --bg-tint: #f4f7f9;
+  --bg-soft: #f8fafb;      /* app backgroundSecondary */
+  --bg-tint: #f0fdfa;      /* app backgroundTertiary — subtle teal wash */
   --surface: #ffffff;
 
   /* State colors */
@@ -51,8 +58,8 @@
   --shadow-md: 0 8px 30px rgba(15, 23, 42, 0.1);
   --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.14);
 
-  /* Accents */
-  --gradient: linear-gradient(120deg, #0d9488 0%, #6366f1 100%);
+  /* Action accent = the apps' STAYON_GRADIENT: teal → indigo, horizontal */
+  --gradient: linear-gradient(90deg, #0d9488 0%, #6366f1 100%);
   --gradient-soft: linear-gradient(120deg, rgba(13, 148, 136, 0.08), rgba(99, 102, 241, 0.08));
 }
 
@@ -295,9 +302,9 @@ img {
 .btn-primary {
   background: var(--gradient);
   color: #fff;
-  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.18);
+  box-shadow: 0 6px 16px rgba(79, 99, 205, 0.22);
 }
-.btn-primary:hover { opacity: 0.94; box-shadow: 0 8px 22px rgba(79, 70, 229, 0.26); }
+.btn-primary:hover { opacity: 0.94; box-shadow: 0 8px 22px rgba(79, 99, 205, 0.3); }
 .btn-lg { padding: 14px 26px; font-size: 16px; border-radius: 14px; }
 .btn-dark { background: var(--ink); color: #fff; }
 .btn-dark:hover { background: #1e1e42; }
@@ -317,7 +324,7 @@ img {
   background:
     linear-gradient(180deg, #f7f9fc 0%, #ffffff 88%),
     radial-gradient(900px 320px at 12% -8%, rgba(13, 148, 136, 0.08), transparent),
-    radial-gradient(820px 320px at 92% 0%, rgba(99, 102, 241, 0.08), transparent);
+    radial-gradient(820px 320px at 92% 0%, rgba(20, 184, 166, 0.07), transparent);
 }
 .hero .container {
   position: relative;
@@ -493,7 +500,7 @@ img {
 }
 .home-top .container { position: relative; z-index: 1; }
 .home-top-bg { position: absolute; inset: 0; z-index: 0; }
-.home-top-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.9) 100%); }
+.home-top-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(240, 253, 250, 0.85) 0%, rgba(255, 255, 255, 0.93) 100%); }
 .home-hero-mini { text-align: center; margin-bottom: 22px; }
 .home-hero-mini h1 { font-size: clamp(26px, 3.4vw, 40px); font-weight: 800; letter-spacing: -0.03em; }
 .home-hero-mini p { color: var(--slate); font-size: clamp(14px, 1.6vw, 17px); margin-top: 8px; }
@@ -1419,6 +1426,10 @@ img {
   display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: stretch;
   max-width: 940px; margin: 0 auto;
 }
+/* Reveal wrappers become the grid items — make them stretch so both panes
+   still fill equal height. */
+.hee-grid > .reveal { display: flex; min-width: 0; }
+.hee-grid > .reveal > * { flex: 1; width: 100%; }
 .hee-media {
   position: relative; border-radius: var(--r-xl); overflow: hidden;
   min-height: 380px; box-shadow: var(--shadow-md); background: var(--bg-soft);
@@ -1428,7 +1439,7 @@ img {
 .hee-badge {
   position: absolute; left: 18px; bottom: 18px; z-index: 2;
   display: flex; flex-direction: column; line-height: 1;
-  background: rgba(18, 18, 46, 0.82); backdrop-filter: blur(6px);
+  background: rgba(4, 47, 46, 0.85); backdrop-filter: blur(6px);
   color: #fff; padding: 14px 18px; border-radius: var(--r-lg); box-shadow: var(--shadow-md);
 }
 .hee-badge-k { font-size: 12px; font-weight: 600; opacity: 0.85; }
@@ -1467,7 +1478,7 @@ img {
 .cta-band {
   position: relative; overflow: hidden; text-align: center;
   border-radius: var(--r-xl); padding: 56px 40px; color: #fff;
-  background: linear-gradient(120deg, #0b1220 0%, #17233f 55%, #1e2a4a 100%);
+  background: linear-gradient(120deg, #042f2e 0%, #0f766e 130%);
 }
 .cta-band h2 { color: #fff; font-size: 30px; margin-bottom: 10px; }
 .cta-band p { color: rgba(255, 255, 255, 0.78); font-size: 16px; margin-bottom: 24px; }
@@ -1476,14 +1487,14 @@ img {
 .section-alt {
   background:
     radial-gradient(700px 300px at 8% 0%, rgba(13, 148, 136, 0.06), transparent 70%),
-    radial-gradient(700px 300px at 92% 100%, rgba(99, 102, 241, 0.06), transparent 70%),
-    var(--bg-soft);
+    radial-gradient(700px 300px at 92% 100%, rgba(20, 184, 166, 0.05), transparent 70%),
+    var(--bg-tint);
 }
 .cta-band::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background:
     radial-gradient(600px 260px at 15% 0%, rgba(13, 148, 136, 0.35), transparent 65%),
-    radial-gradient(600px 260px at 85% 100%, rgba(99, 102, 241, 0.32), transparent 65%);
+    radial-gradient(600px 260px at 85% 100%, rgba(99, 102, 241, 0.3), transparent 65%);
 }
 .cta-band > * { position: relative; z-index: 1; }
 .section-head.center { flex-direction: column; align-items: center; text-align: center; gap: 8px; }
@@ -1495,12 +1506,12 @@ img {
   background:
     radial-gradient(760px 360px at 8% 0%, rgba(45, 212, 191, 0.14), transparent),
     radial-gradient(760px 360px at 96% 10%, rgba(129, 140, 248, 0.16), transparent),
-    linear-gradient(165deg, #0b1220 0%, #141d33 100%);
+    linear-gradient(165deg, #042f2e 0%, #0f4c47 100%);
 }
 .host-hero .container { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 44px; align-items: center; position: relative; z-index: 1; }
 /* Rotating photo backdrop behind the dark host hero */
 .host-hero-bg { position: absolute; inset: 0; z-index: 0; }
-.host-hero-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(165deg, rgba(11, 18, 32, 0.86) 0%, rgba(20, 29, 51, 0.9) 100%); }
+.host-hero-bg::after { content: ''; position: absolute; inset: 0; background: linear-gradient(165deg, rgba(4, 47, 46, 0.87) 0%, rgba(15, 66, 62, 0.9) 100%); }
 .host-hero .hero-eyebrow { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.16); color: #7fe7d6; }
 .host-hero h1 { color: #fff; font-size: clamp(36px, 4.8vw, 56px); font-weight: 800; letter-spacing: -0.03em; line-height: 1.04; margin-bottom: 18px; }
 .host-hero h1 .accent { background: linear-gradient(120deg, #2dd4bf, #a5b4fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -1524,9 +1535,9 @@ img {
 
 /* Phone mockups */
 .phone-showcase { display: flex; justify-content: center; align-items: flex-start; gap: 34px; flex-wrap: wrap; margin-top: 8px; }
-.phone-frame { width: 232px; height: 474px; background: #0b1220; border-radius: 36px; padding: 11px; box-shadow: var(--shadow-lg); position: relative; }
+.phone-frame { width: 232px; height: 474px; background: #071b1a; border-radius: 36px; padding: 11px; box-shadow: var(--shadow-lg); position: relative; }
 .phone-frame:nth-child(2) { margin-top: 42px; }
-.phone-frame::before { content: ''; position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 86px; height: 16px; background: #0b1220; border-radius: 0 0 14px 14px; z-index: 2; }
+.phone-frame::before { content: ''; position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 86px; height: 16px; background: #071b1a; border-radius: 0 0 14px 14px; z-index: 2; }
 .phone-screen { width: 100%; height: 100%; background: #fff; border-radius: 26px; overflow: hidden; display: flex; flex-direction: column; }
 .phone-screen-photo { position: relative; height: 56%; flex: none; }
 .phone-screen-photo img { width: 100%; height: 100%; object-fit: cover; }
@@ -1599,7 +1610,7 @@ img {
 .faq-media > img { width: 100%; height: 440px; object-fit: cover; display: block; }
 .faq-media-card {
   position: absolute; left: 16px; right: 16px; bottom: 16px;
-  background: rgba(18, 18, 46, 0.82); backdrop-filter: blur(6px); color: #fff;
+  background: rgba(4, 47, 46, 0.85); backdrop-filter: blur(6px); color: #fff;
   padding: 16px 18px; border-radius: var(--r-lg); box-shadow: var(--shadow-md);
 }
 .faq-media-eyebrow { display: block; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: #5eead4; margin-bottom: 6px; }
@@ -1626,8 +1637,8 @@ img {
   margin-top: 72px; color: rgba(255, 255, 255, 0.72); font-size: 14px;
   background:
     radial-gradient(1000px 400px at 12% -10%, rgba(13, 148, 136, 0.28), transparent 60%),
-    radial-gradient(900px 420px at 88% 0%, rgba(99, 102, 241, 0.26), transparent 60%),
-    #0c0c1f;
+    radial-gradient(900px 420px at 88% 0%, rgba(99, 102, 241, 0.24), transparent 60%),
+    #03211f;
   padding-bottom: 30px;
 }
 .footer-news { border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 40px 0; }
@@ -1943,3 +1954,11 @@ img {
   .wiz-body { animation: none; }
   .wiz-seg-fill { transition: none; }
 }
+
+/* ── Host owner facts strip ─────────────────────────────── */
+.host-stats { border-bottom: 1px solid var(--line-soft); background: var(--bg-tint); }
+.host-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; padding: 22px 24px; }
+.host-stat { display: flex; align-items: center; gap: 12px; color: var(--teal-dark); }
+.host-stat b { display: block; font-size: 15px; color: var(--ink); letter-spacing: -0.01em; }
+.host-stat span { display: block; font-size: 12.5px; color: var(--slate); margin-top: 2px; }
+@media (max-width: 860px) { .host-stats-row { grid-template-columns: 1fr 1fr; gap: 14px; } }

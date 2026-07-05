@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import { GlobeMenu } from './GlobeMenu';
+import { usePrefs } from './PrefsProvider';
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const { t } = usePrefs();
   // On the host surface, the guest search (nav + scroll pill) does not belong.
   const isHost = pathname?.startsWith('/host') ?? false;
 
@@ -32,9 +34,9 @@ export function Header() {
         {!isHost && (
           <div className="header-center">
             <nav className="header-nav" aria-label="Primary">
-              <Link href="/search">Stays</Link>
-              <Link href="/map">Explore</Link>
-              <Link href="/trips">Trips</Link>
+              <Link href="/search">{t('Stays')}</Link>
+              <Link href="/map">{t('Explore')}</Link>
+              <Link href="/trips">{t('Trips')}</Link>
             </nav>
             <Link href="/search" className="header-search-pill" aria-label="Search stays" tabIndex={scrolled ? 0 : -1}>
               <span className="hsp-text">Anywhere</span>
@@ -50,21 +52,21 @@ export function Header() {
         )}
         <div className="header-actions">
           <Link href="/host" className="host-link">
-            <span className="host-word-full">Become a host</span>
-            <span className="host-word-short">Host</span>
+            <span className="host-word-full">{t('Become a host')}</span>
+            <span className="host-word-short">{t('Host')}</span>
           </Link>
           <GlobeMenu />
           <SignedOut>
             <SignInButton mode="modal">
-              <button className="btn btn-ghost">Log in</button>
+              <button className="btn btn-ghost">{t('Log in')}</button>
             </SignInButton>
             <SignUpButton mode="modal">
-              <button className="btn btn-primary hide-sm">Sign up</button>
+              <button className="btn btn-primary hide-sm">{t('Sign up')}</button>
             </SignUpButton>
           </SignedOut>
           <SignedIn>
             <Link href="/trips" className="host-link">
-              Trips
+              {t('Trips')}
             </Link>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>

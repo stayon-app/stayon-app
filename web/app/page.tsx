@@ -12,12 +12,14 @@ import { RotatingBg } from '@/components/RotatingBg';
 import { WizIcon } from '@/components/WizIcon';
 import { TRAVEL_STORIES } from '@/lib/stories';
 
-// Soft, slowly-cycling travel backdrop behind the home search (under a light veil).
+// Soft, slowly-cycling travel backdrop behind the home search (under a light
+// teal-tinted veil). Scenic, aspirational picks — water villas, island domes,
+// tropical pools, alpine lakes.
 const HOME_TOP_BG = [
-  'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=1600&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?w=1600&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1537953773345-d172ccf13cf1?w=1600&q=80&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=1600&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=1600&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1533105079780-92b9be482077?w=1600&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=1600&q=80&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80&auto=format&fit=crop',
 ];
 
 const HOW = [
@@ -54,7 +56,7 @@ export default async function HomePage() {
         <div className="container">
           <div className="home-hero-mini">
             <h1>Find your next stay</h1>
-            <p>Search deals on homes, villas and unique places to stay — no booking fees.</p>
+            <p>Beach villas, mountain cabins and city lofts — nearby weekend escapes or across the world. No booking fees, ever.</p>
           </div>
           <div className="home-search">
             <SearchBar />
@@ -77,7 +79,7 @@ export default async function HomePage() {
         <section className="section">
           <div className="container" style={{ display: 'grid', gap: 44 }}>
             {rows.map((row, i) => (
-              <Reveal key={row.city} delay={i * 60}>
+              <Reveal key={row.city} delay={i * 60} className={i % 2 === 0 ? 'reveal-left' : 'reveal-right'}>
                 <StayCarousel
                   title={`Stays in ${row.city}`}
                   stays={row.list.slice(0, 12)}
@@ -149,7 +151,7 @@ export default async function HomePage() {
           </Reveal>
           <div className="story-grid">
             {TRAVEL_STORIES.map((s, i) => (
-              <Reveal key={s.title} delay={i * 80} className="reveal-scale">
+              <Reveal key={s.title} delay={i * 80} className={['reveal-left', 'reveal-scale', 'reveal-right'][i % 3]}>
                 <StoryCard story={s} />
               </Reveal>
             ))}
@@ -168,7 +170,7 @@ export default async function HomePage() {
           </Reveal>
           <div className="feature-3up">
             {HOW.map((f, i) => (
-              <Reveal key={f.title} delay={i * 90} className="reveal-scale">
+              <Reveal key={f.title} delay={i * 90} className={['reveal-left', 'reveal-scale', 'reveal-right'][i]}>
                 <div className="feature-card">
                   <div className="feature-icon"><WizIcon name={f.icon} size={26} /></div>
                   <h3>{f.title}</h3>

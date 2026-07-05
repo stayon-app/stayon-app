@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Price } from './Price';
+import { Reveal } from './Reveal';
+import { usePrefs } from './PrefsProvider';
 
 // Interactive earnings estimator (host-side content, economics allowed).
 // Two panes: a rotating property image with a "you keep 100%" badge, and a
@@ -15,6 +17,7 @@ const SHOTS = [
 ];
 
 export function HostEarnings() {
+  const { t } = usePrefs();
   const [price, setPrice] = useState(120); // nightly, USD — the swept value
   const [nights, setNights] = useState(15);
   const [shot, setShot] = useState(0);
@@ -33,21 +36,24 @@ export function HostEarnings() {
 
   return (
     <div className="hee-grid">
-      {/* Media pane */}
-      <div className="hee-media">
-        {SHOTS.map((src, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={src} src={src} alt="" className={`hee-media-img${i === shot ? ' is-active' : ''}`} loading="lazy" />
-        ))}
-        <div className="hee-badge">
-          <span className="hee-badge-k">You keep</span>
-          <span className="hee-badge-v">100%</span>
+      {/* Media pane — slides in from the left */}
+      <Reveal className="reveal-left">
+        <div className="hee-media">
+          {SHOTS.map((src, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={src} src={src} alt="" className={`hee-media-img${i === shot ? ' is-active' : ''}`} loading="lazy" />
+          ))}
+          <div className="hee-badge">
+            <span className="hee-badge-k">You keep</span>
+            <span className="hee-badge-v">100%</span>
+          </div>
         </div>
-      </div>
+      </Reveal>
 
-      {/* Estimator pane */}
+      {/* Estimator pane — slides in from the right */}
+      <Reveal className="reveal-right" delay={120}>
       <div className="host-earn-est">
-        <div className="hee-eyebrow">Estimate your earnings</div>
+        <div className="hee-eyebrow">{t('Estimate your earnings')}</div>
         <div className="hee-amount"><Price usd={monthly} /><span>/ month</span></div>
         <div className="hee-sub">
           {nights} night{nights > 1 ? 's' : ''} booked · <Price usd={price} /> / night
@@ -55,7 +61,7 @@ export function HostEarnings() {
         </div>
 
         <label className="hee-ctl">
-          <span className="hee-ctl-label">Your nightly price</span>
+          <span className="hee-ctl-label">{t('Your nightly price')}</span>
           <input
             type="range" min={20} max={500} step={5} value={price}
             onChange={(e) => setPrice(Number(e.target.value))}
@@ -66,7 +72,7 @@ export function HostEarnings() {
         </label>
 
         <label className="hee-ctl">
-          <span className="hee-ctl-label">Nights booked / month</span>
+          <span className="hee-ctl-label">{t('Nights booked / month')}</span>
           <input
             type="range" min={1} max={30} value={nights}
             onChange={(e) => setNights(Number(e.target.value))}
@@ -78,6 +84,7 @@ export function HostEarnings() {
 
         <p className="hee-note">Illustrative estimate — your actual earnings depend on your price, location and availability. You keep 100%.</p>
       </div>
+      </Reveal>
     </div>
   );
 }

@@ -1,15 +1,19 @@
+'use client';
+
 import Link from 'next/link';
 import { NewsletterSignup } from './NewsletterSignup';
 import { WizIcon } from './WizIcon';
+import { usePrefs } from './PrefsProvider';
 
 export function Footer() {
+  const { t } = usePrefs();
   return (
     <footer className="site-footer">
       {/* Newsletter strip */}
       <div className="footer-news">
         <div className="container footer-news-inner">
           <div className="footer-news-copy">
-            <h3>Get travel inspiration in your inbox</h3>
+            <h3>{t('Get travel inspiration in your inbox')}</h3>
             <p>New destinations, guest-favourite stays and seasonal deals — no spam, unsubscribe anytime.</p>
           </div>
           <NewsletterSignup />
@@ -27,22 +31,22 @@ export function Footer() {
             </div>
           </div>
           <div className="footer-col">
-            <h4>Explore</h4>
-            <Link href="/search">Search stays</Link>
-            <Link href="/map">Map search</Link>
-            <Link href="/trips">Your trips</Link>
+            <h4>{t('Explore')}</h4>
+            <Link href="/search">{t('Search stays')}</Link>
+            <Link href="/map">{t('Map search')}</Link>
+            <Link href="/trips">{t('Your trips')}</Link>
           </div>
           <div className="footer-col">
-            <h4>Company</h4>
-            <Link href="/host">Become a host</Link>
-            <span>About StayOn</span>
-            <span>Careers</span>
+            <h4>{t('Company')}</h4>
+            <Link href="/host">{t('Become a host')}</Link>
+            <span>{t('About StayOn')}</span>
+            <span>{t('Careers')}</span>
           </div>
           <div className="footer-col">
-            <h4>Trust &amp; safety</h4>
-            <span>Identity-verified accounts</span>
-            <span>Secure on-platform payments</span>
-            <span>24/7 support</span>
+            <h4>{t('Trust & safety')}</h4>
+            <span>{t('Identity-verified accounts')}</span>
+            <span>{t('Secure on-platform payments')}</span>
+            <span>{t('24/7 support')}</span>
           </div>
         </div>
         <div className="footer-legal">

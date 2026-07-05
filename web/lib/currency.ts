@@ -79,7 +79,7 @@ export function formatPrice(usd: number, code: string): string {
 
 export const LANGUAGES = [
   { code: 'en', label: 'English', active: true },
-  { code: 'hi', label: 'हिन्दी (Hindi)', active: false },
-  { code: 'fr', label: 'Français', active: false },
-  { code: 'es', label: 'Español', active: false },
+  { code: 'hi', label: 'हिन्दी (Hindi)', active: true },
+  { code: 'fr', label: 'Français', active: true },
+  { code: 'es', label: 'Español', active: true },
 ];

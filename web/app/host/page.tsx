@@ -29,10 +29,10 @@ const HOST_FEATURES = [
 ];
 
 const HOST_EARNINGS = [
-  { tag: 'Villa', place: 'Goa, India', usd: 250, img: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600&q=80&auto=format&fit=crop' },
-  { tag: 'Beach villa', place: 'Malibu, USA', usd: 420, img: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&q=80&auto=format&fit=crop' },
-  { tag: 'Cave suite', place: 'Santorini, GR', usd: 410, img: 'https://images.unsplash.com/photo-1570214476695-19bd467e6f7a?w=600&q=80&auto=format&fit=crop' },
-  { tag: 'Loft', place: 'New York, USA', usd: 310, img: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80&auto=format&fit=crop' },
+  { tag: 'Villa', place: 'Goa, India', usd: 250, note: '~18 nights booked / month', img: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=600&q=80&auto=format&fit=crop' },
+  { tag: 'Beach villa', place: 'Malibu, USA', usd: 420, note: 'Superhost · 4.96 ★', img: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&q=80&auto=format&fit=crop' },
+  { tag: 'Cave suite', place: 'Santorini, GR', usd: 410, note: 'Booked solid all summer', img: 'https://images.unsplash.com/photo-1570214476695-19bd467e6f7a?w=600&q=80&auto=format&fit=crop' },
+  { tag: 'Loft', place: 'New York, USA', usd: 310, note: 'Instant Book · quick payouts', img: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&q=80&auto=format&fit=crop' },
 ];
 
 const HOST_FAQ = [
@@ -59,7 +59,7 @@ const HOST_FAQ_CARDS = [
 export default function HostPage() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const { openSignIn } = useClerk();
-  const { format } = usePrefs();
+  const { format, t } = usePrefs();
 
   const [listings, setListings] = useState<any[]>([]);
   const [reservations, setReservations] = useState<any[]>([]);
@@ -115,22 +115,26 @@ export default function HostPage() {
         <section className="host-hero">
           <RotatingBg images={HOST_HERO_BG} interval={6000} className="host-hero-bg" />
           <div className="container">
-            <div className="hero-copy">
-              <span className="hero-eyebrow"><WizIcon name="sparkles" size={14} /> Hosting on StayOn</span>
-              <h1>Your place could be <span className="accent">earning.</span></h1>
-              <p className="lede">
-                Most platforms take 3–15% of every booking. StayOn takes <b>nothing</b>.
-                List your place, set your price, and keep 100% of what your guests pay.
-              </p>
-              <div className="host-cta">
-                <button className="btn btn-primary btn-lg" onClick={() => openSignIn()} disabled={!isLoaded}>
-                  Get started — it&apos;s free
-                </button>
-                <Link href="/search" className="btn btn-ghost" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.24)' }}>
-                  Browse stays
-                </Link>
+            <Reveal className="reveal-left">
+              <div className="hero-copy">
+                <span className="hero-eyebrow"><WizIcon name="sparkles" size={14} /> {t('Hosting on StayOn')}</span>
+                <h1>Your place could be <span className="accent">{t('earning.')}</span></h1>
+                <p className="lede">
+                  You&apos;re not just a host — you&apos;re the owner of a hospitality business.
+                  Most platforms take 3–15% of every booking; StayOn takes <b>nothing</b>.
+                  Your property, your price, your brand — and 100% of what your guests pay.
+                </p>
+                <div className="host-cta">
+                  <button className="btn btn-primary btn-lg" onClick={() => openSignIn()} disabled={!isLoaded}>
+                    {t("Get started — it's free")}
+                  </button>
+                  <Link href="/search" className="btn btn-ghost" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.24)' }}>
+                    {t('Browse stays')}
+                  </Link>
+                </div>
               </div>
-            </div>
+            </Reveal>
+            <Reveal className="reveal-right" delay={120}>
             <div className="host-hero-visual">
               <TiltCard className="host-hero-card float-el" maxTilt={4}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -147,26 +151,44 @@ export default function HostPage() {
               <div className="hero-float-badge float-el">
                 <span className="hfb-icon">✓</span>
                 <div>
-                  <b>Guests verified</b>
-                  <span>Phone + ID checked before booking</span>
+                  <b>{t('Guests verified')}</b>
+                  <span>{t('Phone + ID checked before booking')}</span>
                 </div>
               </div>
             </div>
+            </Reveal>
           </div>
         </section>
+
+        {/* Owner facts strip — business credentials, all true product facts */}
+        <div className="host-stats">
+          <div className="container host-stats-row">
+            {([
+              ['cash', '0% commission', 'Every booking is 100% yours'],
+              ['clock', 'Payouts in ~24h', 'Direct after check-in, no middleman'],
+              ['verified', 'Verified guests', 'Phone + ID checked before booking'],
+              ['map', 'Global storefront', '20 currencies, guests worldwide'],
+            ] as const).map(([ic, kpi, sub], i) => (
+              <Reveal key={kpi} delay={i * 70} className={i < 2 ? 'reveal-left' : 'reveal-right'}>
+                <div className="host-stat">
+                  <WizIcon name={ic} size={22} />
+                  <div><b>{kpi}</b><span>{sub}</span></div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+        </div>
 
         {/* Interactive earnings estimator */}
         <section className="section">
           <div className="container">
             <Reveal>
               <div className="section-head center">
-                <h2>See what your place could earn</h2>
+                <h2>{t('See what your place could earn')}</h2>
                 <p>Drag the slider to estimate your monthly earnings — you set the price, you keep 100%.</p>
               </div>
             </Reveal>
-            <Reveal delay={80} className="reveal-scale">
-              <HostEarnings />
-            </Reveal>
+            <HostEarnings />
           </div>
         </section>
 
@@ -175,17 +197,17 @@ export default function HostPage() {
           <div className="container">
             <Reveal>
               <div className="section-head center">
-                <h2>Join hosts earning on StayOn</h2>
+                <h2>{t('Join hosts earning on StayOn')}</h2>
                 <p>Free to list, simple to manage, and you keep the full amount.</p>
               </div>
             </Reveal>
             <div className="feature-3up">
               {HOST_FEATURES.map((f, i) => (
-                <Reveal key={f.title} delay={i * 90} className="reveal-scale">
+                <Reveal key={f.title} delay={i * 90} className={['reveal-left', 'reveal-scale', 'reveal-right'][i] || 'reveal-scale'}>
                   <div className="feature-card">
                     <div className="feature-icon"><WizIcon name={f.icon} size={26} /></div>
-                    <h3>{f.title}</h3>
-                    <p>{f.body}</p>
+                    <h3>{t(f.title)}</h3>
+                    <p>{t(f.body)}</p>
                   </div>
                 </Reveal>
               ))}
@@ -198,12 +220,12 @@ export default function HostPage() {
           <div className="container">
             <Reveal>
               <div className="section-head center">
-                <h2>Your place looks great on StayOn</h2>
+                <h2>{t('Your place looks great on StayOn')}</h2>
                 <p>Guests browse listings just like this — clean, fast and fee-free.</p>
               </div>
             </Reveal>
             <div className="phone-showcase">
-              <Reveal>
+              <Reveal className="reveal-left">
                 <div className="phone-frame">
                   <div className="phone-screen">
                     <div className="phone-screen-photo">
@@ -219,7 +241,7 @@ export default function HostPage() {
                   </div>
                 </div>
               </Reveal>
-              <Reveal delay={120}>
+              <Reveal className="reveal-right" delay={120}>
                 <div className="phone-frame">
                   <div className="phone-screen">
                     <div className="phone-screen-photo">
@@ -244,13 +266,13 @@ export default function HostPage() {
           <div className="container">
             <Reveal>
               <div className="section-head center">
-                <h2>Homes like yours are earning</h2>
+                <h2>{t('Homes like yours are earning')}</h2>
                 <p>Illustrative nightly rates on StayOn — fee-free, so the full amount is yours.</p>
               </div>
             </Reveal>
             <div className="earn-row">
               {HOST_EARNINGS.map((e, i) => (
-                <Reveal key={e.place} delay={i * 70} className="reveal-scale">
+                <Reveal key={e.place} delay={i * 70} className={i % 2 === 0 ? 'reveal-left' : 'reveal-right'}>
                   <div className="earn-card">
                     <div className="earn-card-photo">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -260,7 +282,7 @@ export default function HostPage() {
                     <div className="earn-card-body">
                       <div className="ec-place"><WizIcon name="location" size={14} /> {e.place}</div>
                       <div className="ec-amount"><Price usd={e.usd} /> <span>/ night</span></div>
-                      <div className="ec-sub">You keep 100% — no commission</div>
+                      <div className="ec-sub">{e.note}</div>
                     </div>
                   </div>
                 </Reveal>
@@ -274,19 +296,19 @@ export default function HostPage() {
           <div className="container">
             <Reveal>
               <div className="section-head center">
-                <h2>You set the price. It&apos;s all yours.</h2>
+                <h2>{t("You set the price. It's all yours.")}</h2>
                 <p>Your property, your rules. Choose exactly what guests pay — StayOn adds nothing on top and takes nothing out.</p>
               </div>
             </Reveal>
             <div className="price-control">
               {HOST_PRICE_CONTROL.map((c, i) => (
-                <Reveal key={c.title} delay={i * 70} className="reveal-scale">
+                <Reveal key={c.title} delay={i * 70} className={i % 2 === 0 ? 'reveal-left' : 'reveal-right'}>
                   <div className="pc-tile">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={c.img} alt="" loading="lazy" />
                     <div className="pc-tile-cap">
-                      <h3>{c.title}</h3>
-                      <p>{c.line}</p>
+                      <h3>{t(c.title)}</h3>
+                      <p>{t(c.line)}</p>
                     </div>
                   </div>
                 </Reveal>
@@ -294,7 +316,7 @@ export default function HostPage() {
             </div>
             <Reveal delay={120}>
               <div className="pc-banner">
-                <b>Every bit your guests pay is yours.</b>
+                <b>{t('Every bit your guests pay is yours.')}</b>
                 <span>Set it, change it anytime, keep 100% — no commission, no service fee, ever.</span>
               </div>
             </Reveal>
@@ -305,7 +327,7 @@ export default function HostPage() {
         <section className="section">
           <div className="container">
             <Reveal>
-              <div className="section-head"><h2>Your questions, answered</h2></div>
+              <div className="section-head"><h2>{t('Your questions, answered')}</h2></div>
             </Reveal>
             <div className="faq-cards">
               {HOST_FAQ_CARDS.map((c, i) => (
@@ -343,7 +365,7 @@ export default function HostPage() {
           <div className="container">
             <Reveal>
               <div className="cta-band">
-                <h2>Start earning with StayOn</h2>
+                <h2>{t('Start earning with StayOn')}</h2>
                 <p>No commission, no catch — list your place today and keep 100%.</p>
                 <button className="btn btn-primary btn-lg" onClick={() => openSignIn()} disabled={!isLoaded}>
                   Get started — it&apos;s free

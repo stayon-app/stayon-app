@@ -5,6 +5,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { DEFAULT_CURRENCY, detectCurrency, formatPrice } from '@/lib/currency';
+import { translate } from '@/lib/i18n';
 
 interface PrefsValue {
   currency: string;
@@ -12,6 +13,7 @@ interface PrefsValue {
   setCurrency: (code: string) => void;
   setLanguage: (code: string) => void;
   format: (usd: number) => string;
+  t: (s: string) => string;
 }
 
 const PrefsContext = createContext<PrefsValue | undefined>(undefined);
@@ -43,9 +45,10 @@ export function PrefsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const format = useCallback((usd: number) => formatPrice(usd, currency), [currency]);
+  const t = useCallback((s: string) => translate(language, s), [language]);
 
   return (
-    <PrefsContext.Provider value={{ currency, language, setCurrency, setLanguage, format }}>
+    <PrefsContext.Provider value={{ currency, language, setCurrency, setLanguage, format, t }}>
       {children}
     </PrefsContext.Provider>
   );
