@@ -26,6 +26,13 @@ export default async function SearchPage({
   const complete = !!(params.q && params.checkIn && params.checkOut && params.guests);
   const { results, total } = complete ? await searchStays(params) : { results: [], total: 0 };
 
+  // Carried onto each stay link (Airbnb-style ?checkIn=…&checkOut=…&guests=…)
+  // so the booking card opens pre-filled with the searched trip.
+  const dateQs = new URLSearchParams(
+    Object.entries({ checkIn: params.checkIn, checkOut: params.checkOut, guests: params.guests })
+      .filter(([, v]) => !!v) as [string, string][],
+  ).toString();
+
   return (
     <section className="section">
       <div className="container">
@@ -39,7 +46,7 @@ export default async function SearchPage({
         </div>
 
         {complete ? (
-          <SearchResults stays={results} query={searchParams.q} total={total} />
+          <SearchResults stays={results} query={searchParams.q} total={total} dateQs={dateQs} />
         ) : (
           <div className="empty search-incomplete">
             <h2>Start your search</h2>

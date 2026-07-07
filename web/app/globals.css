@@ -761,6 +761,77 @@ img {
 .reviews-empty p { color: var(--slate); font-size: 14.5px; margin-top: 4px; }
 /* Host block */
 .host-block { display: flex; align-items: center; gap: 18px; }
+
+/* ── Airbnb-style title row + actions ───────────────────── */
+.title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.stay-actions { display: flex; gap: 6px; flex: none; margin-bottom: 8px; }
+.stay-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  padding: 8px 12px;
+  border-radius: 10px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.stay-action:hover { background: var(--bg-soft); }
+.stay-action.is-saved { color: #ff385c; }
+
+/* Hosted-by row (heading left, avatar right) */
+.hosted-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.host-avatar-sm { width: 52px; height: 52px; font-size: 21px; flex: none; }
+
+/* Highlights */
+.highlights { display: flex; flex-direction: column; gap: 18px; }
+.hl-item { display: flex; gap: 16px; align-items: flex-start; }
+.hl-icon { color: var(--ink); flex: none; margin-top: 2px; }
+.hl-item b { font-size: 15.5px; color: var(--ink); }
+.hl-item p { font-size: 14px; color: var(--slate-light); margin-top: 2px; }
+
+/* Things to know */
+.know-section { border-top: 1px solid var(--line); margin-top: 8px; padding: 34px 0 20px; }
+.know-section > h3 { font-size: 21px; letter-spacing: -0.3px; margin-bottom: 20px; }
+.know-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+.know-grid h4 { font-size: 15px; margin-bottom: 10px; color: var(--ink); }
+.know-grid ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.know-grid li, .know-grid p { font-size: 14.5px; color: var(--slate); }
+
+/* Mobile fixed price + Reserve bar (hidden on desktop) */
+.mobile-reserve {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 85;
+  background: #fff;
+  border-top: 1px solid var(--line);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.mr-price { display: flex; flex-direction: column; line-height: 1.25; }
+.mr-price b { font-size: 17px; color: var(--ink); }
+.mr-price span { font-size: 13px; color: var(--slate); }
+.mr-price small { font-size: 11.5px; color: var(--teal-dark); font-weight: 600; }
+.mobile-reserve .btn { padding: 13px 26px; }
+
+@media (max-width: 720px) {
+  .mobile-reserve { display: flex; }
+  .title-row { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .stay-actions { margin: 0 0 4px -12px; }
+  .hosted-row { flex-direction: row; }
+  .know-grid { grid-template-columns: 1fr; gap: 22px; }
+  /* keep content clear of the fixed reserve bar */
+  .know-section { padding-bottom: 96px; }
+}
 .host-avatar { flex: none; width: 60px; height: 60px; border-radius: 50%; display: grid; place-items: center; background: var(--gradient); color: #fff; font-size: 24px; font-weight: 800; }
 .host-name { margin-bottom: 4px; }
 .host-meta { color: var(--slate); font-size: 14.5px; }

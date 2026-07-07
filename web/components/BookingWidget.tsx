@@ -17,28 +17,44 @@ interface Quote {
   totalUSD: number;
 }
 
+// "2026-07-31" → Date (local midnight); invalid/absent → null.
+const parseIso = (s?: string) => {
+  if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(s + 'T00:00:00');
+  return Number.isNaN(+d) ? null : d;
+};
+
 export function BookingWidget({
   stayId,
   priceUSD,
   maxGuests,
   baseGuests,
   instantBook,
+  initialCheckIn,
+  initialCheckOut,
+  initialGuests,
 }: {
   stayId: string;
   priceUSD: number;
   maxGuests: number;
   baseGuests: number;
   instantBook: boolean;
+  /** Optional ?checkIn/?checkOut/?guests carried from search (Airbnb-style deep link). */
+  initialCheckIn?: string;
+  initialCheckOut?: string;
+  initialGuests?: string;
 }) {
   const { isSignedIn, getToken } = useAuth();
   const { openSignIn } = useClerk();
   const { format } = usePrefs();
 
-  const [ci, setCi] = useState<Date | null>(null);
-  const [co, setCo] = useState<Date | null>(null);
+  const [ci, setCi] = useState<Date | null>(() => parseIso(initialCheckIn));
+  const [co, setCo] = useState<Date | null>(() => parseIso(initialCheckOut));
   const [calOpen, setCalOpen] = useState(false);
   const calRef = useRef<HTMLDivElement>(null);
-  const [guests, setGuests] = useState(String(baseGuests || 1));
+  const [guests, setGuests] = useState(
+    String(Math.max(1, parseInt(initialGuests || '', 10) || baseGuests || 1)),
+  );
   const [promo, setPromo] = useState('');
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
@@ -140,7 +156,7 @@ export function BookingWidget({
 
   if (confirmed) {
     return (
-      <aside className="book-card">
+      <aside className="book-card" id="book-card">
         <div className="booked-check">✓</div>
         <h3 className="booked-title">
           {confirmed.status === 'confirmed' ? 'Booking confirmed!' : 'Request sent!'}
@@ -161,7 +177,7 @@ export function BookingWidget({
   }
 
   return (
-    <aside className="book-card">
+    <aside className="book-card" id="book-card">
       <div className="price-lg">
         <b>{format(priceUSD)}</b> <span>/ night</span>
       </div>
