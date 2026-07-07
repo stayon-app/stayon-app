@@ -16,11 +16,14 @@ export function StayCard({
   active = false,
   onHover,
   id,
+  linkQs,
 }: {
   stay: Listing;
   active?: boolean;
   onHover?: (id: string | null) => void;
   id?: string;
+  /** Optional query string (e.g. "checkIn=…&checkOut=…&guests=2") carried to the stay page. */
+  linkQs?: string;
 }) {
   const router = useRouter();
   const images = (stay.images || []).slice(0, 8);
@@ -42,7 +45,9 @@ export function StayCard({
 
   return (
     <Link
-      href={`/stay/${stay.id}`}
+      href={`/stay/${stay.id}${linkQs ? `?${linkQs}` : ''}`}
+      target="_blank"
+      rel="noopener noreferrer"
       className={`card${active ? ' is-active' : ''}`}
       id={id}
       onMouseEnter={onHover ? () => onHover(stay.id) : undefined}

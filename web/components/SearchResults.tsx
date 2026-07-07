@@ -15,7 +15,7 @@ const SearchMap = dynamic(() => import('./SearchMap').then((m) => m.SearchMap), 
 
 const PAGE_SIZE = 18;
 
-export function SearchResults({ stays, query, total }: { stays: Listing[]; query?: string; total: number }) {
+export function SearchResults({ stays, query, total, dateQs }: { stays: Listing[]; query?: string; total: number; dateQs?: string }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -80,7 +80,7 @@ export function SearchResults({ stays, query, total }: { stays: Listing[]; query
         {pageStays.length > 0 ? (
           <div className="search-grid">
             {pageStays.map((s) => (
-              <StayCard key={s.id} stay={s} id={`sc-${s.id}`} active={s.id === activeId} onHover={setActiveId} />
+              <StayCard key={s.id} stay={s} id={`sc-${s.id}`} active={s.id === activeId} onHover={setActiveId} linkQs={dateQs} />
             ))}
           </div>
         ) : (
