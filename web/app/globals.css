@@ -1231,9 +1231,9 @@ img {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--teal);
+  background: var(--gradient);
   border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.5);
+  box-shadow: 0 2px 8px rgba(79, 99, 205, 0.5);
 }
 .price-pin {
   display: inline-block;

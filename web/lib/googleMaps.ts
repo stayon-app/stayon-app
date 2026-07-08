@@ -25,3 +25,27 @@ export function loadGoogleMaps(): Promise<any> {
 }
 
 export { KEY as GOOGLE_MAPS_KEY };
+
+// A teardrop location pin painted with the app's STAYON_GRADIENT
+// (#0D9488 → #6366F1). Native Google markers/symbols can't render a gradient,
+// so we hand them an inline SVG. Works for draggable markers too.
+const PIN_SVG =
+  'data:image/svg+xml;charset=UTF-8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">` +
+      `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">` +
+      `<stop offset="0" stop-color="#0d9488"/><stop offset="1" stop-color="#6366f1"/>` +
+      `</linearGradient></defs>` +
+      `<path d="M16 41C16 41 28 25 28 15A12 12 0 1 0 4 15C4 25 16 41 16 41Z" fill="url(#g)" stroke="#fff" stroke-width="2"/>` +
+      `<circle cx="16" cy="15" r="4.6" fill="#fff"/>` +
+    `</svg>`,
+  );
+
+/** Gradient teardrop marker icon config for `new google.maps.Marker({ icon })`. */
+export function gradientPinIcon(google: any) {
+  return {
+    url: PIN_SVG,
+    scaledSize: new google.maps.Size(32, 42),
+    anchor: new google.maps.Point(16, 41),
+  };
+}

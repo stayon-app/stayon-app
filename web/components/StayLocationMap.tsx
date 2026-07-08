@@ -4,7 +4,7 @@
 // matching the mobile apps. Shows an approximate-area circle rather than an
 // exact pin (the precise address is shared after booking).
 import { useEffect, useRef } from 'react';
-import { loadGoogleMaps } from '@/lib/googleMaps';
+import { loadGoogleMaps, gradientPinIcon } from '@/lib/googleMaps';
 
 export function StayLocationMap({ lat, lng, label }: { lat: number; lng: number; label?: string }) {
   const elRef = useRef<HTMLDivElement>(null);
@@ -26,10 +26,13 @@ export function StayLocationMap({ lat, lng, label }: { lat: number; lng: number;
           gestureHandling: 'cooperative',
           clickableIcons: false,
         });
+        // Soft approximate-area circle (brand teal, low opacity).
         new google.maps.Circle({
           center: { lat, lng }, radius: 900, map,
-          strokeColor: '#0d9488', strokeWeight: 2, fillColor: '#0d9488', fillOpacity: 0.12,
+          strokeColor: '#0d9488', strokeWeight: 2, fillColor: '#14b8a6', fillOpacity: 0.12,
         });
+        // Gradient teardrop pin (STAYON_GRADIENT) marks the location centre.
+        new google.maps.Marker({ position: { lat, lng }, map, icon: gradientPinIcon(google) });
         mapRef.current = map;
       })
       .catch(() => { /* map failed — the area text still shows */ });

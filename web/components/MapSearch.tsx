@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { usePrefs } from './PrefsProvider';
 import { WizIcon } from './WizIcon';
 import { API } from '@/lib/stayonClient';
-import { loadGoogleMaps } from '@/lib/googleMaps';
+import { loadGoogleMaps, gradientPinIcon } from '@/lib/googleMaps';
 import type { Listing } from '@/lib/types';
 
 interface Suggestion {
@@ -121,7 +121,7 @@ export function MapSearch() {
     if (!pinRef.current) {
       pinRef.current = new google.maps.Marker({
         position: center, map, draggable: true,
-        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#0d9488', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3 },
+        icon: gradientPinIcon(google),   // brand gradient teardrop
       });
       pinRef.current.addListener('dragend', (e: any) => {
         setCenter({ lat: e.latLng.lat(), lng: e.latLng.lng() });
@@ -133,7 +133,7 @@ export function MapSearch() {
     if (!circleRef.current) {
       circleRef.current = new google.maps.Circle({
         center, radius: radius * 1000, map,
-        strokeColor: '#0d9488', strokeWeight: 2, fillColor: '#0d9488', fillOpacity: 0.08,
+        strokeColor: '#6366f1', strokeWeight: 2, fillColor: '#14b8a6', fillOpacity: 0.08,
       });
     } else {
       circleRef.current.setCenter(center);
