@@ -125,6 +125,12 @@ export const stayon = {
   book: (payload: { listingId: string; checkIn: string; checkOut: string; guests: number }) =>
     authed('POST', '/bookings', payload),
   myBookings: (): Promise<{ items: any[] }> => authed('GET', '/bookings'),
+  // Wishlist — the `wishlists` table is the source of truth when signed in.
+  wishlist: {
+    list: (): Promise<{ items: { listing_id: string }[] }> => authed('GET', '/wishlists'),
+    add: (listingId: string) => authed('POST', '/wishlists', { listingId }),
+    remove: (listingId: string) => authed('DELETE', `/wishlists/${listingId}`),
+  },
 };
 
 // Authed — profile (used by the post-signup "Set up your profile" step)
