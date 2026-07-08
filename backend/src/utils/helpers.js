@@ -34,6 +34,37 @@ const genCode = () => {
   return `STY-${c}`;
 };
 
+// Human-readable account reference codes (migration-013). Uses of the DB PK
+// (uuid) are unchanged — these are display/support identifiers only.
+const _codeBody = (n = 8) => {
+  const s = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  let c = '';
+  for (let i = 0; i < n; i++) c += s[crypto.randomInt(s.length)];
+  return c;
+};
+const genUserCode = () => `SOU-${_codeBody()}`; // every account
+const genHostCode = () => `SOH-${_codeBody()}`; // on first listing
+
+/** Run a write that may target a not-yet-migrated column/table. The Supabase
+ *  client resolves with `{ error }` (it does NOT throw) — so we inspect both the
+ *  returned error object AND thrown exceptions. Only "does not exist" is
+ *  swallowed (returns null); every real error still propagates. This keeps
+ *  behaviour identical pre/post migration-013 with no silent data loss. */
+const _notMigrated = (m) => /does not exist|schema cache|could not find|relation .* does not exist|column .* of relation/i.test(m || '');
+async function softWrite(fn) {
+  try {
+    const r = await fn();
+    if (r && r.error) {
+      if (_notMigrated(r.error.message)) return null;
+      throw r.error;
+    }
+    return r ?? true;
+  } catch (e) {
+    if (_notMigrated(e.message)) return null;
+    throw e;
+  }
+}
+
 const TAX_RATE = 0.12;
 const PLATFORM_FEE = 0;
 
@@ -110,6 +141,9 @@ const wrap = (fn) => (req, res) =>
 // Output mappers (snake_case DB → camelCase API)
 const userOut = (r) => r && ({
   id: r.id,
+  userCode: r.user_code,   // SOU-XXXXXXXX (migration-013)
+  hostCode: r.host_code,   // SOH-XXXXXXXX (set on first listing)
+  isHost: r.is_host ?? false,
   phone: r.phone,
   email: r.email,
   name: r.name,
@@ -262,6 +296,9 @@ module.exports = {
   one,
   now,
   genCode,
+  genUserCode,
+  genHostCode,
+  softWrite,
   TAX_RATE,
   PLATFORM_FEE,
   ok,

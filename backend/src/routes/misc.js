@@ -14,6 +14,7 @@ const {
   ok,
   err,
   listingOut,
+  softWrite,
   now
 } = require('../utils/helpers');
 
@@ -190,6 +191,44 @@ router.post('/me/delete', authUser, wrap(async (req, res) => {
   await tryDel(sb.from('notifications').delete().eq('user_id', uid));
   await tryDel(sb.from('users').update({ name: 'Deleted user', phone: null, email: null, push_token: null, status: 'deleted' }).eq('id', uid));
   ok(res, { deleted: true });
+}));
+
+// ── v2 (migration-013): synced settings ─────────────────────────────────────
+// Falls back to sane defaults until the table exists, so it never 500s.
+const DEFAULT_SETTINGS = { language: 'en', currency: 'USD', notif_push: true, notif_email: true, notif_sms: false, privacy: {}, accessibility: {} };
+router.get('/me/settings', authUser, wrap(async (req, res) => {
+  let row = null;
+  try { row = await one('user_settings', { user_id: req.auth.sub }); } catch { /* table not migrated yet */ }
+  ok(res, { settings: { ...DEFAULT_SETTINGS, ...(row || {}) } });
+}));
+router.put('/me/settings', authUser, wrap(async (req, res) => {
+  const b = req.body || {};
+  const patch = { user_id: req.auth.sub, updated_at: now() };
+  for (const k of ['language', 'currency', 'notif_push', 'notif_email', 'notif_sms', 'privacy', 'accessibility']) {
+    if (b[k] !== undefined) patch[k] = b[k];
+  }
+  const saved = await softWrite(() => sb.from('user_settings').upsert(patch, { onConflict: 'user_id' }));
+  ok(res, { ok: true, applied: saved !== null });
+}));
+
+// ── v2: guest payment methods (masked; never raw card data) ─────────────────
+router.get('/me/payment-methods', authUser, wrap(async (req, res) => {
+  let items = [];
+  try { items = await rows('payment_methods', { user_id: req.auth.sub }); } catch { /* not migrated */ }
+  ok(res, { items });
+}));
+router.post('/me/payment-methods', authUser, wrap(async (req, res) => {
+  const { kind, brand, maskedLast4, providerRef, isDefault } = req.body || {};
+  if (!kind) return err(res, 'KIND', 'kind required');
+  const row = await softWrite(() => sb.from('payment_methods')
+    .insert({ user_id: req.auth.sub, kind, brand: brand || null, masked_last4: maskedLast4 || null, provider_ref: providerRef || null, is_default: !!isDefault })
+    .select().single());
+  if (!row) return err(res, 'NOT_READY', 'Payment methods are not enabled yet (run migration-013).', 503);
+  ok(res, { method: row });
+}));
+router.delete('/me/payment-methods/:id', authUser, wrap(async (req, res) => {
+  await softWrite(() => sb.from('payment_methods').delete().match({ id: req.params.id, user_id: req.auth.sub }));
+  ok(res, { ok: true });
 }));
 
 module.exports = router;

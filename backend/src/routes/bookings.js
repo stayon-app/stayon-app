@@ -18,7 +18,8 @@ const {
   bookingOut,
   resvOut,
   listingOut,
-  PROMOS
+  PROMOS,
+  softWrite
 } = require('../utils/helpers');
 
 async function syncStatus(code, status) {
@@ -104,11 +105,19 @@ router.post('/bookings', authUser, wrap(async (req, res) => {
     return err(res, 'UNAVAILABLE', 'Those dates were just booked by someone else — please pick different dates.', 409);
   }
   let pay = { status: 'held' };
+  let intentId = null, intentStatus = 'held';
   try {
     const intent = await payments.createIntent(booking);
+    intentId = intent.intentId; intentStatus = intent.status;
     await sb.from('bookings').update({ payment_intent_id: intent.intentId, payment_status: intent.status }).eq('id', booking.id);
     pay = { status: intent.status, clientSecret: intent.clientSecret, provider: payments.PROVIDER };
   } catch { /* escrow tracked via status */ }
+  // v2: normalized payment record (guarded no-op until migration-013 adds the table)
+  await softWrite(() => sb.from('payments').insert({
+    booking_id: booking.id, booking_code: code, user_id: req.auth.sub, kind: 'charge',
+    amount_usd: total, currency: 'USD', provider: payments.PROVIDER,
+    provider_intent_id: intentId, status: intentStatus,
+  }));
   await notify(l.host_id, l.instant_book ? 'booking.confirmed' : 'booking.request', { code });
   ok(res, { id: booking.id, code, status, payment: pay, promo: promoApplied });
 }));

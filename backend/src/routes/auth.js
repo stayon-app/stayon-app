@@ -1,7 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const { signAccess, createRefreshToken, rotateRefreshToken, revokeToken, authUser } = require('../auth');
-const { one, insertRow, updateByMatch, wrap, ok, err, userOut } = require('../utils/helpers');
+const { sb, one, insertRow, updateByMatch, wrap, ok, err, userOut, genUserCode, softWrite } = require('../utils/helpers');
+
+// v2 (migration-013): give a brand-new account its SOU code + record the login
+// method. Guarded — a complete no-op until the migration is applied, so signup
+// never breaks. No duplicates: unique(kind,identifier) + unique user_code.
+async function provisionAccount(user, { kind, identifier, providerRef } = {}) {
+  await softWrite(() => sb.from('users').update({ user_code: genUserCode() }).eq('id', user.id).is('user_code', null));
+  if (kind && identifier) {
+    await softWrite(() => sb.from('auth_methods')
+      .upsert({ user_id: user.id, kind, identifier, provider_ref: providerRef || null, verified: true, is_primary: kind === 'phone' },
+              { onConflict: 'kind,identifier' }));
+  }
+}
 const { createOtp, verifyOtp } = require('../services/otp');
 const { verifyClerkToken } = require('../services/clerk');
 const { otpSendLimiter, otpVerifyLimiter } = require('../middleware/rateLimiter');
@@ -20,6 +32,7 @@ router.post('/auth/send-otp', otpSendLimiter, wrap(async (req, res) => {
       name: name || 'Guest',
       country_code: countryCode || 'IN',
     });
+    await provisionAccount(user, { kind: 'phone', identifier: phone });
   }
 
   // Generate, store, and send the OTP
@@ -95,6 +108,9 @@ router.post('/auth/clerk', wrap(async (req, res) => {
         country_code: 'IN',
       });
       isNewUser = true;
+      await provisionAccount(user, info.email
+        ? { kind: 'email', identifier: info.email, providerRef: info.clerkUserId }
+        : { kind: 'phone', identifier: info.phone });
     }
   }
 

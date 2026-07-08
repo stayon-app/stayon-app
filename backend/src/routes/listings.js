@@ -17,7 +17,9 @@ const {
   effectiveNightly,
   nightlyForGuestsRow,
   distKm,
-  TAX_RATE
+  TAX_RATE,
+  genHostCode,
+  softWrite
 } = require('../utils/helpers');
 
 const listingIn = (b) => ({
@@ -82,6 +84,12 @@ router.post('/listings', authUser, wrap(async (req, res) => {
       const { extra, ...rest } = payload;
       l = await insertRow('listings', rest);
     } else throw e;
+  }
+  // v2: first listing → assign SOH host code + flag is_host (guarded no-op
+  // pre-migration; only sets host_code when still null, so never duplicated).
+  if (!(mine || []).length) {
+    await softWrite(() => sb.from('users').update({ is_host: true }).eq('id', req.auth.sub));
+    await softWrite(() => sb.from('users').update({ host_code: genHostCode() }).eq('id', req.auth.sub).is('host_code', null));
   }
   ok(res, { id: l.id, status: l.status });
 }));
