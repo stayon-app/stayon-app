@@ -18,6 +18,8 @@ import { Skeleton } from '../components/common';
 import { useHaptics } from '../hooks/useHaptics';
 import { WikiImage } from '../components/WikiImage';
 import { attractionsFor } from '../data/attractions';
+import { buildThingsToDo } from '../data/thingsToDo';
+import { Api } from '../api';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
@@ -70,7 +72,10 @@ export const DestinationDetailsScreen: React.FC = () => {
   const placeCountry: string = route.params?.country || mockDestination.country;
   const heroFallback: string = route.params?.image || mockDestination.heroImage;
   const places = attractionsFor(place);
+  const things = buildThingsToDo(place, placeCountry);
   const [intro, setIntro] = useState(mockDestination.description);
+  // Real number of live stays in this city, from the shared backend inventory.
+  const [stayCount, setStayCount] = useState<number | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -78,6 +83,17 @@ export const DestinationDetailsScreen: React.FC = () => {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive && d && d.extract) setIntro(d.extract); })
       .catch(() => { /* keep default */ });
+    return () => { alive = false; };
+  }, [place]);
+
+  useEffect(() => {
+    let alive = true;
+    Api.search({ q: place })
+      .then((r: any) => {
+        const n = Array.isArray(r) ? r.length : (r?.results?.length ?? r?.listings?.length ?? 0);
+        if (alive) setStayCount(n);
+      })
+      .catch(() => { if (alive) setStayCount(0); });
     return () => { alive = false; };
   }, [place]);
 
@@ -103,13 +119,28 @@ export const DestinationDetailsScreen: React.FC = () => {
   }, [isLoading, contentOpacity]);
 
   // In real app, fetch destination by ID from route.params
-  const destination = mockDestination;
+  // Real, city-specific view of the tapped destination. Everything below reads
+  // from this, so the screen never shows another city's data (e.g. Jaipur must
+  // not render New York's numbers). Counts come from real per-city content and
+  // the live backend; text facts fall back to the curated mock when unknown.
+  const destination = {
+    ...mockDestination,
+    name: place,
+    country: placeCountry,
+    description: intro,
+    heroImage: heroFallback,
+    placeCount: places.length,
+    activityCount: things.length,
+    propertyCount: stayCount ?? 0,
+  };
 
+  // Lead with places to visit / things to do (destination-first, like the
+  // website). Stays come last — this is a place guide, not a property list.
   const tabs = [
-    { id: 'properties' as TabType, label: 'Properties', count: destination.propertyCount },
-    { id: 'activities' as TabType, label: 'Things to Do', count: destination.activityCount },
     { id: 'places' as TabType, label: 'Must Visit', count: destination.placeCount },
+    { id: 'activities' as TabType, label: 'Things to Do', count: destination.activityCount },
     { id: 'tips' as TabType, label: 'Travel Tips', count: null },
+    { id: 'properties' as TabType, label: 'Stays', count: destination.propertyCount },
   ];
 
   const renderContent = () => {
@@ -355,18 +386,18 @@ export const DestinationDetailsScreen: React.FC = () => {
 
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{destination.propertyCount}+</Text>
-              <Text style={styles.statLabel}>Properties</Text>
+              <Text style={styles.statNumber}>{destination.placeCount}</Text>
+              <Text style={styles.statLabel}>Places to visit</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{destination.activityCount}+</Text>
-              <Text style={styles.statLabel}>Activities</Text>
+              <Text style={styles.statNumber}>{destination.activityCount}</Text>
+              <Text style={styles.statLabel}>Things to do</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{destination.placeCount}+</Text>
-              <Text style={styles.statLabel}>Places</Text>
+              <Text style={styles.statNumber}>{stayCount === null ? '—' : stayCount}</Text>
+              <Text style={styles.statLabel}>Stays</Text>
             </View>
           </View>
         </View>

@@ -37,6 +37,7 @@ import { sortByDistance } from '../utils/distance';
 import { getPendingBooking, clearPendingBooking, type PendingBooking } from '../data/pendingBooking';
 import { getRecentlyViewed, type RecentStay } from '../data/recentlyViewed';
 import { buildThingsToDo } from '../data/thingsToDo';
+import { attractionsFor } from '../data/attractions';
 import { homeContentFor } from '../data/homeContent';
 import { generateLocalStays } from '../data/genStays';
 import { WikiImage } from '../components/WikiImage';
@@ -802,7 +803,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 <View style={styles.destinationOverlay}>
                   <Text style={styles.destinationCity}>{dest.city}</Text>
                   <Text style={styles.destinationCountry}>{dest.country}</Text>
-                  <Text style={styles.destinationProperties}>{dest.properties} properties</Text>
+                  <Text style={styles.destinationProperties}>{attractionsFor(dest.city).length || 5} places to visit</Text>
                 </View>
                 <View style={styles.destinationBadge}>
                   <Text style={styles.destinationBadgeText}>{dest.description}</Text>

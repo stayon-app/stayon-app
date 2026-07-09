@@ -1,19 +1,19 @@
 import Link from 'next/link';
-import { POPULAR_DESTINATIONS } from '@/lib/destinations';
+import { DESTINATION_GUIDES } from '@/lib/destinationGuides';
 
-// Popular-destination tiles — photo with a stay-count badge and a city label.
-// Links into search for that city.
+// Popular-destination tiles — each opens a DESTINATION GUIDE (places to visit,
+// facts about the place), not a stays search.
 export function DestinationRail() {
   return (
     <div className="dest-grid">
-      {POPULAR_DESTINATIONS.slice(0, 8).map((d) => (
-        <Link key={d.city} href={`/search?q=${encodeURIComponent(d.city)}`} className="dest-tile">
-          <span className="dest-tile-count">{d.stays} stays</span>
+      {DESTINATION_GUIDES.slice(0, 8).map((g) => (
+        <Link key={g.slug} href={`/destination/${g.slug}`} className="dest-tile">
+          <span className="dest-tile-count">{g.attractions.length} places to visit</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={d.image} alt={`${d.city}, ${d.country}`} loading="lazy" />
+          <img src={g.hero} alt={`${g.city}, ${g.country}`} loading="lazy" />
           <div className="dest-tile-label">
-            <b>{d.city}</b>
-            <span>{d.tagline}</span>
+            <b>{g.city}</b>
+            <span>{g.tagline}</span>
           </div>
         </Link>
       ))}
