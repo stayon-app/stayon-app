@@ -525,15 +525,24 @@ export const MapExploreScreen: React.FC<{ navigation?: any; route?: any }> = ({ 
           }
           const r = await Api.search(sp);
           const be = (r.results || []).map(beToMapProperty);
-          if (be.length) {
+          if (query.trim()) {
+            // Location search → the backend is the source of truth (same as the
+            // website): show ONLY real available stays, or "coming soon" if none.
+            // No mock padding, so results reflect true availability.
+            setVisibleProperties(be as any);
+            setComingSoon(be.length === 0);
+          } else if (be.length) {
+            // Passive browse (no destination) → real listings first, mock filler
+            // after so the map is never empty.
             setVisibleProperties((prev: any[]) => {
-              const seen = new Set((prev || []).map((p) => p.id));
-              return [...be.filter((p: any) => !seen.has(p.id)), ...(prev || [])] as any;
+              const seen = new Set(be.map((p: any) => p.id));
+              return [...be, ...(prev || []).filter((p: any) => !seen.has(p.id))] as any;
             });
             setComingSoon(false);
           }
         } catch {
-          // backend offline — mock results still shown
+          // backend offline — the mock set shown synchronously above remains,
+          // so search still works without a connection.
         }
       })();
     },
