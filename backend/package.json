@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@clerk/backend": "^1.0.0",
-    "@supabase/supabase-js": "^2.107.0",
+    "@supabase/supabase-js": "^2.110.2",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2"
